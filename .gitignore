@@ -1,0 +1,36 @@
+# CDK output
+cdk.out/
+
+# Python virtual environments
+.venv/
+env/
+venv/
+infra/.venv/
+backend/.venv/
+
+# Python cache
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+
+# Node modules
+node_modules/
+frontend/node_modules/
+
+# Frontend build artifacts
+frontend/dist/
+frontend/build/
+
+# MacOS junk files
+.DS_Store
+
+# IDE/editor settings
+.vscode/
+.idea/
+
+# AWS SAM/Cfn templates (optional)
+.aws-sam/
+
+# Environment files
+.env
