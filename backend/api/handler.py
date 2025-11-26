@@ -9,6 +9,7 @@ from botocore.exceptions import ClientError
 STAGE = os.environ.get("STAGE", "dev")
 JOBS_TABLE_NAME = os.environ["JOBS_TABLE_NAME"]
 UPLOAD_BUCKET_NAME = os.environ["UPLOAD_BUCKET_NAME"]
+API_TOKEN = os.environ.get("API_TOKEN")
 
 dynamodb = boto3.resource("dynamodb")
 jobs_table = dynamodb.Table(JOBS_TABLE_NAME)
@@ -20,6 +21,11 @@ def handler(event, context):
     """
     Entry point for API Gateway -> Lambda proxy integration.
     """
+    headers = event.get("headers") or {}
+    provided = headers.get("X-API-TOKEN") or headers.get("x-api-token")
+
+    if API_TOKEN and provided != API_TOKEN:
+        return _response(401, {"message": "Unauthorized"})
     path = event.get("resource") or event.get("path", "")
     http_method = event.get("httpMethod", "")
 

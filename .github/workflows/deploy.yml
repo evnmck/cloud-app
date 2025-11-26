@@ -17,6 +17,7 @@ jobs:
     env:   # <---- ADD THIS BLOCK
       ACCOUNT_ID: ${{ secrets.ACCOUNT_ID }}
       REGION: ${{ secrets.AWS_REGION }}  # or secrets.REGION if you created one
+      API_TOKEN: ${{ secrets.API_TOKEN }}
 
     steps:
       - name: Checkout repo
@@ -62,6 +63,7 @@ jobs:
     env:
       ACCOUNT_ID: ${{ secrets.ACCOUNT_ID }}
       REGION: ${{ secrets.AWS_REGION }}
+      API_TOKEN: ${{ secrets.API_TOKEN }}
 
     steps:
       - name: Checkout repo
