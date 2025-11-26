@@ -11,9 +11,12 @@ on:
 
 jobs:
   deploy-dev:
-    # Only run this job for pull_request events
     if: github.event_name == 'pull_request'
     runs-on: ubuntu-latest
+
+    env:   # <---- ADD THIS BLOCK
+      ACCOUNT_ID: ${{ secrets.ACCOUNT_ID }}
+      REGION: ${{ secrets.AWS_REGION }}  # or secrets.REGION if you created one
 
     steps:
       - name: Checkout repo
@@ -53,9 +56,12 @@ jobs:
           cdk deploy MyApp-dev --require-approval never
 
   deploy-prod:
-    # Only run this job on pushes to main (not on PR events)
     if: github.event_name == 'push' && github.ref == 'refs/heads/main'
     runs-on: ubuntu-latest
+
+    env:
+      ACCOUNT_ID: ${{ secrets.ACCOUNT_ID }}
+      REGION: ${{ secrets.AWS_REGION }}
 
     steps:
       - name: Checkout repo
