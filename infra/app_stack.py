@@ -8,6 +8,7 @@ from aws_cdk import (
     aws_lambda as _lambda,
     aws_apigateway as apigw,
 )
+import os
 from constructs import Construct
 
 
@@ -46,13 +47,13 @@ class AppStack(Stack):
             "ApiLambda",
             function_name=f"myapp-{stage}-api",
             runtime=_lambda.Runtime.PYTHON_3_11,
-            handler="handler.handler",  # backend/api/handler.py -> def handler(event, context)
+            handler="handler.handler",
             code=_lambda.Code.from_asset("../backend/api"),
-            timeout=Duration.seconds(30),
             environment={
                 "STAGE": stage,
                 "JOBS_TABLE_NAME": jobs_table.table_name,
                 "UPLOAD_BUCKET_NAME": upload_bucket.bucket_name,
+                "API_TOKEN": os.environ.get("API_TOKEN", ""),
             },
         )
 
