@@ -1,0 +1,103 @@
+name: Deploy CDK Stacks
+
+on:
+  # Deploy dev when PRs target main
+  pull_request:
+    branches: [ main ]
+
+  # Deploy prod when changes are pushed/merged to main
+  push:
+    branches: [ main ]
+
+jobs:
+  deploy-dev:
+    if: github.event_name == 'pull_request'
+    runs-on: ubuntu-latest
+
+    env:   # <---- ADD THIS BLOCK
+      ACCOUNT_ID: ${{ secrets.ACCOUNT_ID }}
+      REGION: ${{ secrets.AWS_REGION }}  # or secrets.REGION if you created one
+      API_TOKEN: ${{ secrets.API_TOKEN }}
+
+    steps:
+      - name: Checkout repo
+        uses: actions/checkout@v4
+
+      - name: Set up Node (for CDK CLI)
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+
+      - name: Install CDK CLI
+        run: npm install -g aws-cdk
+
+      - name: Install Python dependencies for infra
+        working-directory: infra
+        run: |
+          python -m venv .venv
+          source .venv/bin/activate
+          pip install -r requirements.txt
+
+      - name: Configure AWS credentials
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
+          aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+          aws-region: ${{ secrets.AWS_REGION }}
+
+      - name: Deploy dev stack (MyApp-dev)
+        working-directory: infra
+        run: |
+          source .venv/bin/activate
+          cdk deploy MyApp-dev --require-approval never
+
+  deploy-prod:
+    if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+    runs-on: ubuntu-latest
+
+    env:
+      ACCOUNT_ID: ${{ secrets.ACCOUNT_ID }}
+      REGION: ${{ secrets.AWS_REGION }}
+      API_TOKEN: ${{ secrets.API_TOKEN }}
+
+    steps:
+      - name: Checkout repo
+        uses: actions/checkout@v4
+
+      - name: Set up Node (for CDK CLI)
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+
+      - name: Install CDK CLI
+        run: npm install -g aws-cdk
+
+      - name: Install Python dependencies for infra
+        working-directory: infra
+        run: |
+          python -m venv .venv
+          source .venv/bin/activate
+          pip install -r requirements.txt
+
+      - name: Configure AWS credentials
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
+          aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+          aws-region: ${{ secrets.AWS_REGION }}
+
+      - name: Deploy prod stack (MyApp-prod)
+        working-directory: infra
+        run: |
+          source .venv/bin/activate
+          cdk deploy MyApp-prod --require-approval never
