@@ -21,16 +21,26 @@ def handler(event, context):
     """
     Entry point for API Gateway -> Lambda proxy integration.
     """
+    # Debug logging (shows up in CloudWatch Logs)
+    print(f"Received event: {json.dumps(event)[:1000]}")
+
     headers = event.get("headers") or {}
     provided = headers.get("X-API-TOKEN") or headers.get("x-api-token")
 
-    if API_TOKEN and provided != API_TOKEN:
-        return _response(401, {"message": "Unauthorized"})
     path = event.get("resource") or event.get("path", "")
     http_method = event.get("httpMethod", "")
 
-    # Debug logging (shows up in CloudWatch Logs)
-    print(f"Received event: {json.dumps(event)[:1000]}")
+    # Let OPTIONS pass through without auth
+    if http_method == "OPTIONS":
+        return {
+            "statusCode": 200,
+            "headers": CORS_HEADERS,
+            "body": "",
+        }
+
+    # Auth for actual requests
+    if API_TOKEN and provided != API_TOKEN:
+        return _response(401, {"message": "Unauthorized"})
 
     # Health check
     if path == "/health" and http_method == "GET":
@@ -41,7 +51,6 @@ def handler(event, context):
         return _handle_create_upload(event)
 
     # GET /jobs/{jobId}
-    # resource: /jobs/{jobId}
     if path == "/jobs/{jobId}" and http_method == "GET":
         path_params = event.get("pathParameters") or {}
         job_id = path_params.get("jobId")
@@ -51,6 +60,7 @@ def handler(event, context):
 
     # Fallback
     return _response(404, {"message": "Not found"})
+
 
 
 # ---------- Handlers ----------
@@ -143,14 +153,16 @@ def _handle_get_job(job_id: str):
     return _response(200, item)
 
 
-# ---------- Helpers ----------
+CORS_HEADERS = {
+    "Content-Type": "application/json",
+    "Access-Control-Allow-Origin": "http://localhost:5173",  # or "*"
+    "Access-Control-Allow-Headers": "Content-Type,X-API-TOKEN",
+    "Access-Control-Allow-Methods": "GET,POST,PUT,OPTIONS",
+}
 
 def _response(status_code: int, body: dict):
     return {
         "statusCode": status_code,
-        "headers": {
-            "Content-Type": "application/json",
-            "Access-Control-Allow-Origin": "*",  # for later React usage
-        },
+        "headers": CORS_HEADERS,
         "body": json.dumps(body),
     }
