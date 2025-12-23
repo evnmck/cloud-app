@@ -24,6 +24,9 @@ class AppStack(Stack):
             "CORS_ORIGIN",
             "http://localhost:5173" if stage == "dev" else "*"
         )
+        
+        # For API Gateway, use ALL_ORIGINS when wildcard is specified
+        api_cors_origins = apigw.Cors.ALL_ORIGINS if cors_origin == "*" else [cors_origin]
 
         # ---------- DynamoDB: jobs table ----------
         jobs_table = dynamodb.Table(
@@ -93,8 +96,7 @@ class AppStack(Stack):
             ),
             default_cors_preflight_options=apigw.CorsOptions(
             # For dev, this is fine. You can restrict later if you want.
-            allow_origins=[cors_origin],
-            # Or: allow_origins=apigw.Cors.ALL_ORIGINS,
+            allow_origins=api_cors_origins,
             allow_methods=["GET", "POST", "PUT", "OPTIONS"],
             allow_headers=["Content-Type", "X-API-TOKEN"],
             ),
