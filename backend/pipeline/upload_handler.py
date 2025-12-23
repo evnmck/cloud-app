@@ -14,6 +14,7 @@ def handler(event, context):
     for record in event["Records"]:
         bucket = record["s3"]["bucket"]["name"]
         key = record["s3"]["object"]["key"]
+        print(f"Processing S3 object s3://{bucket}/{key}")
 
         # Expect "uploads/<jobId>/filename"
         parts = key.split("/")
