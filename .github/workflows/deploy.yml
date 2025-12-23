@@ -4,6 +4,9 @@ on:
   # Deploy dev when PRs target main
   pull_request:
     branches: [ main ]
+    paths:
+      - 'infra/**'
+      - 'backend/**'
 
   # Deploy prod when changes are pushed/merged to main
   push:
@@ -14,9 +17,9 @@ jobs:
     if: github.event_name == 'pull_request'
     runs-on: ubuntu-latest
 
-    env:   # <---- ADD THIS BLOCK
+    env:   
       ACCOUNT_ID: ${{ secrets.ACCOUNT_ID }}
-      REGION: ${{ secrets.AWS_REGION }}  # or secrets.REGION if you created one
+      REGION: ${{ secrets.AWS_REGION }}  
       API_TOKEN: ${{ secrets.API_TOKEN }}
 
     steps:
