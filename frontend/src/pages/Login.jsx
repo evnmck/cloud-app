@@ -1,40 +1,57 @@
-import { useState } from 'react'
-import { useNavigate } from 'react-router-dom'
+
+import { useState, useEffect } from 'react'
+import { useNavigate, useLocation } from 'react-router-dom'
 import { useAuth } from '../contexts/AuthContext'
-import client from '../api/client'
+import styles from './Login.module.css'
 
 export default function Login() {
   const [tokenInput, setTokenInput] = useState('')
   const [error, setError] = useState('')
   const navigate = useNavigate()
-  const { login } = useAuth()
+  const location = useLocation()
+  const { token, login } = useAuth()
+
+  const from = location.state?.from?.pathname || '/'
+
+  // If already logged in, redirect to dashboard
+  useEffect(() => {
+    if (token) navigate(from, { replace: true })
+  }, [token, from, navigate])
 
   const handleSubmit = async (e) => {
     e.preventDefault()
     setError('')
-    // If you have an API login endpoint, call it here. For now accept token directly.
     if (!tokenInput) return setError('Please enter an API token')
-    // Optionally validate token by calling /health
     try {
       localStorage.setItem('api_token', tokenInput)
       login(tokenInput)
-      navigate('/')
+      // navigate will be triggered by useEffect when token updates
     } catch (err) {
       setError('Login failed')
     }
   }
 
+  // Only show form if not logged in
+  if (token) return null
+
   return (
-    <div style={{ maxWidth: 400, margin: '2rem auto', fontFamily: 'system-ui' }}>
+    <div className={styles.container}>
       <h1>Login</h1>
       <form onSubmit={handleSubmit}>
-        <div style={{ marginBottom: '0.5rem' }}>
+        <div className={styles.formGroup}>
           <label>API Token</label>
-          <input value={tokenInput} onChange={(e) => setTokenInput(e.target.value)} style={{ width: '100%' }} />
+          <input
+            className={styles.fullWidth}
+            value={tokenInput}
+            onChange={(e) => setTokenInput(e.target.value)}
+          />
         </div>
-        {error && <div style={{ color: 'red' }}>{error}</div>}
-        <button type="submit">Login</button>
+        {error && <div className={styles.error}>{error}</div>}
+        <div className={styles.buttonRow}>
+          <button type="submit">Login</button>
+        </div>
       </form>
     </div>
   )
 }
+
