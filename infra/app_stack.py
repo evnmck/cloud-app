@@ -18,6 +18,12 @@ class AppStack(Stack):
         super().__init__(scope, construct_id, **kwargs)
 
         self.stage = stage
+        
+        # Get CORS origin from environment variable or use default based on stage
+        cors_origin = os.environ.get(
+            "CORS_ORIGIN",
+            "http://localhost:5173" if stage == "dev" else "*"
+        )
 
         # ---------- DynamoDB: jobs table ----------
         jobs_table = dynamodb.Table(
@@ -48,10 +54,7 @@ class AppStack(Stack):
                 s3.HttpMethods.GET,
                 s3.HttpMethods.HEAD,
             ],
-            allowed_origins=[
-                "http://localhost:5173",  # your dev frontend
-                # later you can add your prod origin here, e.g. "https://app.my-domain.com"
-            ],
+            allowed_origins=[cors_origin],
             allowed_headers=["*"],  # or ["Content-Type"] if you want to be strict
             exposed_headers=["ETag"],
             max_age=3000,
@@ -70,6 +73,7 @@ class AppStack(Stack):
                 "JOBS_TABLE_NAME": jobs_table.table_name,
                 "UPLOAD_BUCKET_NAME": upload_bucket.bucket_name,
                 "API_TOKEN": os.environ.get("API_TOKEN", ""),
+                "CORS_ORIGIN": cors_origin,
             },
         )
 
@@ -89,7 +93,7 @@ class AppStack(Stack):
             ),
             default_cors_preflight_options=apigw.CorsOptions(
             # For dev, this is fine. You can restrict later if you want.
-            allow_origins=["http://localhost:5173"],
+            allow_origins=[cors_origin],
             # Or: allow_origins=apigw.Cors.ALL_ORIGINS,
             allow_methods=["GET", "POST", "PUT", "OPTIONS"],
             allow_headers=["Content-Type", "X-API-TOKEN"],
