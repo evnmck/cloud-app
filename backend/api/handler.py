@@ -10,6 +10,7 @@ STAGE = os.environ.get("STAGE", "dev")
 JOBS_TABLE_NAME = os.environ["JOBS_TABLE_NAME"]
 UPLOAD_BUCKET_NAME = os.environ["UPLOAD_BUCKET_NAME"]
 API_TOKEN = os.environ.get("API_TOKEN")
+CORS_ORIGIN = os.environ.get("CORS_ORIGIN", "http://localhost:5173")
 
 dynamodb = boto3.resource("dynamodb")
 jobs_table = dynamodb.Table(JOBS_TABLE_NAME)
@@ -158,7 +159,7 @@ def _handle_get_job(job_id: str):
 
 CORS_HEADERS = {
     "Content-Type": "application/json",
-    "Access-Control-Allow-Origin": "http://localhost:5173",  # or "*"
+    "Access-Control-Allow-Origin": CORS_ORIGIN,
     "Access-Control-Allow-Headers": "Content-Type,X-API-TOKEN",
     "Access-Control-Allow-Methods": "GET,POST,PUT,OPTIONS",
 }
