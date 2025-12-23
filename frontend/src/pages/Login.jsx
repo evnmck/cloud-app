@@ -23,7 +23,6 @@ export default function Login() {
     setError('')
     if (!tokenInput) return setError('Please enter an API token')
     try {
-      localStorage.setItem('api_token', tokenInput)
       login(tokenInput)
       // navigate will be triggered by useEffect when token updates
     } catch (err) {
