@@ -4,6 +4,9 @@ on:
   # Deploy dev when PRs target main
   pull_request:
     branches: [ main ]
+    paths:
+      - 'infra/**'
+      - 'backend/**'
 
   # Deploy prod when changes are pushed/merged to main
   push:
