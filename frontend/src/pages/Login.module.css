@@ -1,0 +1,19 @@
+.container {
+  max-width: 400px;
+  margin: 2rem auto;
+  font-family: system-ui;
+}
+.formGroup {
+  margin-bottom: 0.5rem;
+}
+.fullWidth {
+  width: 100%;
+  box-sizing: border-box;
+}
+.error {
+  color: red;
+  margin-bottom: 0.5rem;
+}
+.buttonRow {
+  margin-top: 0.5rem;
+}
