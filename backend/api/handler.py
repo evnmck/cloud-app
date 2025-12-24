@@ -88,10 +88,9 @@ def _handle_create_upload(event):
 
     # Generate a job ID and S3 key
     job_id = str(uuid.uuid4())
-    # Store uploads under a per-job prefix so that downstream handlers can
-    # extract the jobId from the S3 key (e.g., "uploads/{jobId}/filename").
+    # Store all uploads in a single "uploads/" folder with job ID as filename prefix
     safe_filename = filename.replace("/", "_")
-    upload_key = f"uploads/{job_id}/{safe_filename}"
+    upload_key = f"uploads/{job_id}_{safe_filename}"
 
     # Put an initial job record into DynamoDB
     now = datetime.now(timezone.utc).isoformat()
