@@ -1,7 +1,7 @@
 name: Deploy CDK Stacks
 
 on:
-  workflow_dispatch:  # Add this
+  workflow_dispatch:  
   pull_request:
     branches: [ main ]
     paths:
@@ -14,7 +14,7 @@ on:
 
 jobs:
   deploy-dev:
-    if: github.event_name == 'pull_request'
+    if: github.event_name == 'pull_request' || github.event_name == 'workflow_dispatch'
     runs-on: ubuntu-latest
 
     env:   
@@ -60,7 +60,7 @@ jobs:
           cdk deploy MyApp-dev --require-approval never
 
   deploy-prod:
-    if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+    if: (github.event_name == 'push' && github.ref == 'refs/heads/main') || github.event_name == 'workflow_dispatch'
     runs-on: ubuntu-latest
 
     env:
