@@ -1,7 +1,7 @@
 name: Deploy CDK Stacks
 
 on:
-  workflow_dispatch:  # Add this
+  workflow_dispatch:  
   pull_request:
     branches: [ main ]
     paths:
