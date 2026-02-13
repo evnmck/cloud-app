@@ -1,7 +1,7 @@
 name: Deploy CDK Stacks
 
 on:
-  # Deploy dev when PRs target main
+  workflow_dispatch:  # Add this
   pull_request:
     branches: [ main ]
     paths:
