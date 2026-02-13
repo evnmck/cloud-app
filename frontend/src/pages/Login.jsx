@@ -23,6 +23,13 @@ export default function Login() {
     setError('')
     if (!tokenInput) return setError('Please enter an API token')
     try {
+      // Validate token by calling backend API
+      const response = await fetch(`${import.meta.env.VITE_API_BASE_URL}/health`, {
+        headers: { 'X-API-TOKEN': tokenInput }
+      })
+      if (!response.ok) {
+        return setError('Invalid API token')
+      }
       login(tokenInput)
       // navigate will be triggered by useEffect when token updates
     } catch (err) {
