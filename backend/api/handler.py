@@ -1,9 +1,8 @@
 import json
 from config import Config
-from utils import response as _response, CORS_HEADERS
-from controllers.upload_controller import handle_create_upload, handle_get_job
+from utils import response as _response
+from backend.api.controllers.upload_controller import create_upload, get_upload
 from auth import check_auth
-import boto3
 
 def handler(event, context):
     """
@@ -25,15 +24,11 @@ def handler(event, context):
 
     # POST /uploads
     if path == "/uploads" and http_method == "POST":
-        return handle_create_upload(event)
+        return create_upload(event)
 
     # GET /jobs/{jobId}
     if path == "/jobs/{jobId}" and http_method == "GET":
-        path_params = event.get("pathParameters") or {}
-        job_id = path_params.get("jobId")
-        if not job_id:
-            return _response(400, {"message": "Missing jobId in path"})
-        return handle_get_job(job_id)
+        return get_upload(event)
 
     # Fallback
     return _response(404, {"message": "Not found"})

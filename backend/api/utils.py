@@ -1,3 +1,4 @@
+import base64
 import json 
 from config import Config
 
@@ -14,3 +15,12 @@ def response(status_code: int, body: dict):
         "headers": CORS_HEADERS,
         "body": json.dumps(body),
     }
+
+def parse_body(event):
+    try:
+        body = event.get("body") or "{}"
+        if event.get("isBase64Encoded"):
+            body = base64.b64decode(body).decode("utf-8")
+        return json.loads(body)
+    except Exception:
+        return {}
