@@ -16,6 +16,9 @@ jobs:
   deploy-dev:
     if: github.event_name == 'pull_request' || github.event_name == 'workflow_dispatch'
     runs-on: ubuntu-latest
+    concurrency:
+      group: deploy-dev
+      cancel-in-progress: false
 
     env:   
       ACCOUNT_ID: ${{ secrets.ACCOUNT_ID }}
@@ -62,6 +65,9 @@ jobs:
   deploy-prod:
     if: (github.event_name == 'push' && github.ref == 'refs/heads/main') || github.event_name == 'workflow_dispatch'
     runs-on: ubuntu-latest
+    concurrency:
+      group: deploy-prod
+      cancel-in-progress: false
 
     env:
       ACCOUNT_ID: ${{ secrets.ACCOUNT_ID }}
