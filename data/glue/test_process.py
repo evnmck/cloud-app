@@ -300,6 +300,7 @@ class TestHandler:
             'key': 'uploads/job_123/yankees_games.csv'
         }
         context = Mock()
+        context.invoked_function_arn = 'arn:aws:lambda:us-east-1:123456789012:function:test'
         
         result = handler(event, context)
         
@@ -318,6 +319,7 @@ class TestHandler:
             'key': 'uploads/job_123/yankees_games.csv'
         }
         context = Mock()
+        context.invoked_function_arn = 'arn:aws:lambda:us-east-1:123456789012:function:test'
         
         result = handler(event, context)
         
@@ -338,6 +340,7 @@ class TestHandler:
             'key': 'uploads/job_123/yankees_games.csv'
         }
         context = Mock()
+        context.invoked_function_arn = 'arn:aws:lambda:us-east-1:123456789012:function:test'
         
         result = handler(event, context)
         
