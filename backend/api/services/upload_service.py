@@ -11,7 +11,7 @@ def create_upload_service(filename: str, content_type: str):
     job_id = str(uuid.uuid4())
     # Store all uploads in a single "uploads/" folder with job ID as filename prefix
     safe_filename = filename.replace("/", "_")
-    upload_key = f"uploads/{job_id}_{safe_filename}"
+    upload_key = f"uploads/{job_id}/{safe_filename}"
 
     # Put an initial job record into DynamoDB
     now = datetime.now(datetime.timezone.utc).isoformat()
