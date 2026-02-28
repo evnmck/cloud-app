@@ -1,9 +1,9 @@
 from dataclasses import asdict
 import uuid
-from datetime import datetime
-from backend.api.models.job import Job
-from backend.api.repositories.upload_repository import create_upload_repository, get_job_repository
-from backend.api.services.s3_service import generate_presigned_upload_url
+from datetime import datetime, timezone
+from models.job import Job
+from repositories.upload_repository import create_upload_repository, get_job_repository
+from services.s3_service import generate_presigned_upload_url
 from config import Config
 
 def create_upload_service(filename: str, content_type: str):
@@ -14,7 +14,7 @@ def create_upload_service(filename: str, content_type: str):
     upload_key = f"uploads/{job_id}/{safe_filename}"
 
     # Put an initial job record into DynamoDB
-    now = datetime.now(datetime.timezone.utc).isoformat()
+    now = datetime.now(timezone.utc).isoformat()
 
     job = Job(
         jobId=job_id,

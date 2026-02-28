@@ -1,7 +1,7 @@
 import json
 from config import Config
 from utils import response as _response
-from backend.api.controllers.upload_controller import create_upload, get_upload
+from controllers.upload_controller import create_upload, get_job
 from auth import check_auth
 
 def handler(event, context):
@@ -28,7 +28,7 @@ def handler(event, context):
 
     # GET /jobs/{jobId}
     if path == "/jobs/{jobId}" and http_method == "GET":
-        return get_upload(event)
+        return get_job(event)
 
     # Fallback
     return _response(404, {"message": "Not found"})

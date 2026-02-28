@@ -1,5 +1,5 @@
 from dataclasses import asdict
-from backend.api.services.upload_service import create_upload_service, get_job_service
+from services.upload_service import create_upload_service, get_job_service
 from utils import parse_body, response as _response
 from botocore.exceptions import ClientError
 
@@ -26,7 +26,7 @@ def create_upload(event):
         return _response(500, {"message": "Failed to create upload"})
 
 
-def get_upload(event):
+def get_job(event):
     """
     GET /jobs/{jobId}
     Returns the job record from DynamoDB if it exists.
@@ -37,9 +37,9 @@ def get_upload(event):
         return _response(400, {"message": "Missing jobId in path"})
 
     try:
-        file_info = get_job_service(job_id)
-        if not file_info:
-            return _response(404, {"message": "File not found"})
-        return _response(200, asdict(file_info))
+        job = get_job_service(job_id)
+        if not job:
+            return _response(404, {"message": "Job not found"})
+        return _response(200, asdict(job))
     except ClientError as e:
-        return _response(500, {"message": "Failed to read file info"})
+        return _response(500, {"message": "Failed to read job"})
