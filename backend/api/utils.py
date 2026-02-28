@@ -23,4 +23,4 @@ def parse_body(event):
             body = base64.b64decode(body).decode("utf-8")
         return json.loads(body)
     except Exception:
-        return {}
+        return None
