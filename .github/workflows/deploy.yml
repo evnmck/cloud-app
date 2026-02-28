@@ -15,7 +15,8 @@ on:
 jobs:
   test:
     uses: ./.github/workflows/test.yml
-    permissions: {}
+    permissions:
+      contents: read
 
   deploy-dev:
     needs: test

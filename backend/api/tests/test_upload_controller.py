@@ -35,7 +35,7 @@ class TestCreateUpload:
         body = json.loads(result["body"])
         assert body["jobId"] == "abc"
 
-    def test_missing_body_returns_400(self):
+    def test_invalid_json_body_returns_400(self):
         result = create_upload({"body": "not-json"})
         assert result["statusCode"] == 400
 
