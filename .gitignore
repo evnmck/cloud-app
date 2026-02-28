@@ -54,3 +54,4 @@ dist-ssr
 .env
 .env.*
 !.env.example
+backend/api/.coverage
