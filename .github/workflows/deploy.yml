@@ -13,9 +13,16 @@ on:
     branches: [ main ]
 
 jobs:
+  test:
+    uses: ./.github/workflows/test.yml
+    permissions: {}
+
   deploy-dev:
+    needs: test
     if: github.event_name == 'pull_request' || github.event_name == 'workflow_dispatch'
     runs-on: ubuntu-latest
+    permissions:
+      contents: read
     concurrency:
       group: deploy-dev
       cancel-in-progress: false
@@ -63,8 +70,11 @@ jobs:
           cdk deploy MyApp-dev --require-approval never
 
   deploy-prod:
+    needs: test
     if: (github.event_name == 'push' && github.ref == 'refs/heads/main') || github.event_name == 'workflow_dispatch'
     runs-on: ubuntu-latest
+    permissions:
+      contents: read
     concurrency:
       group: deploy-prod
       cancel-in-progress: false
