@@ -8,6 +8,9 @@ from aws_cdk import (
     aws_lambda as _lambda,
     aws_apigateway as apigw,
     aws_lambda_event_sources as lambda_events,
+    aws_glue as glue,
+    aws_iam as iam,
+    aws_s3_assets as s3_assets,
 )
 import os
 from constructs import Construct
@@ -154,3 +157,49 @@ class AppStack(Stack):
                 filters=[s3.NotificationKeyFilter(prefix="uploads/")],
             )
         )
+
+        # ---------- IAM role for Glue job ----------
+        glue_role = iam.Role(
+            self, "GlueJobRole",
+            assumed_by=iam.ServicePrincipal("glue.amazonaws.com"),
+        )
+
+        glue_role.add_managed_policy(
+            iam.ManagedPolicy.from_aws_managed_policy_name("service-role/AWSGlueServiceRole")
+        )
+
+        # Grant S3 access
+        upload_bucket.grant_read_write(glue_role)
+
+        glue_script_asset = s3_assets.Asset(
+            self, "GlueScript",
+            path="../data/glue/process.py"
+        )
+
+        # ---------- Glue job ----------
+        glue_job = glue.CfnJob(
+            self, "DataProcessingJob",
+            name=f"baseball-processing-{stage}",
+            role=glue_role.role_arn,
+            command=glue.CfnJob.JobCommandProperty(
+                name="pythonshell",
+                python_version="3.9",
+                script_location=glue_script_asset.s3_object_url,
+            ),
+            default_arguments={
+                "--TempDir": f"s3://{upload_bucket.bucket_name}/temp/",
+                "--job-bookmark-option": "job-bookmark-enable",
+            },
+        )
+
+        # ---------- Lambda permissions to trigger Glue ----------
+        upload_handler.add_to_role_policy(
+            iam.PolicyStatement(
+                actions=["glue:StartJobRun"],
+                resources=[glue_job.attr_arn],
+            )
+        )
+
+        # Pass Glue job name to Lambda
+        upload_handler.add_environment("GLUE_JOB_NAME", glue_job.name)
+

@@ -8,6 +8,7 @@ from shared_repositories import update_job_repository
 JOBS_TABLE_NAME = os.environ["JOBS_TABLE_NAME"]
 dynamodb = boto3.resource("dynamodb")
 jobs_table = dynamodb.Table(JOBS_TABLE_NAME)
+glue_client = boto3.client("glue")
 
 def handler(event, context):
     print("S3 event:", json.dumps(event))
@@ -27,5 +28,14 @@ def handler(event, context):
         now = datetime.now(timezone.utc).isoformat()
 
         update_job_repository(job_id, "UPLOADED")
+
+        glue_client.start_job_run(
+            JobName=os.environ["GLUE_JOB_NAME"],
+            Arguments={
+                "--jobId": job_id,
+                "--bucket": bucket,
+                "--key": key,
+            }
+        )
 
     return {"statusCode": 200, "body": "ok"}
