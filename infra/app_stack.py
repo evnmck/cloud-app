@@ -35,7 +35,7 @@ class AppStack(Stack):
         jobs_table = dynamodb.Table(
             self,
             "JobsTable",
-            table_name=f"jobs-{stage}",
+            table_name=f"evnmck-baseball-{stage}-jobs",
             partition_key=dynamodb.Attribute(
                 name="jobId",
                 type=dynamodb.AttributeType.STRING,
@@ -48,6 +48,7 @@ class AppStack(Stack):
         upload_bucket = s3.Bucket(
             self,
             "UploadBucket",
+            bucket_name=f"evnmck-baseball-uploads-{stage}",
             block_public_access=s3.BlockPublicAccess.BLOCK_ALL,
             versioned=False,
             removal_policy=RemovalPolicy.DESTROY if stage == "dev" else RemovalPolicy.RETAIN,
@@ -77,7 +78,7 @@ class AppStack(Stack):
         api_lambda = _lambda.Function(
             self,
             "ApiLambda",
-            function_name=f"myapp-{stage}-api",
+            function_name=f"evnmck-baseball-{stage}-api",
             runtime=_lambda.Runtime.PYTHON_3_11,
             handler="handler.handler",
             code=_lambda.Code.from_asset("../backend/api"),
@@ -99,7 +100,7 @@ class AppStack(Stack):
         api = apigw.RestApi(
             self,
             "HttpApi",
-            rest_api_name=f"myapp-{stage}-api",
+            rest_api_name=f"evnmck-baseball-{stage}-api",
             deploy_options=apigw.StageOptions(
                 stage_name=stage,
                 throttling_rate_limit=100,
@@ -139,6 +140,7 @@ class AppStack(Stack):
         upload_handler = _lambda.Function(
             self,
             "UploadEventHandler",
+            function_name=f"evnmck-baseball-{stage}-upload-handler",
             runtime=_lambda.Runtime.PYTHON_3_11,
             handler="upload_handler.handler",
             code=_lambda.Code.from_asset("../backend/pipeline"),
@@ -161,6 +163,7 @@ class AppStack(Stack):
         # ---------- IAM role for Glue job ----------
         glue_role = iam.Role(
             self, "GlueJobRole",
+            role_name=f"evnmck-baseball-{stage}-glue-role",
             assumed_by=iam.ServicePrincipal("glue.amazonaws.com"),
         )
 
@@ -179,7 +182,7 @@ class AppStack(Stack):
         # ---------- Glue job ----------
         glue_job = glue.CfnJob(
             self, "DataProcessingJob",
-            name=f"baseball-processing-{stage}",
+            name=f"evnmck-baseball-{stage}-processing",
             role=glue_role.role_arn,
             command=glue.CfnJob.JobCommandProperty(
                 name="pythonshell",
@@ -196,7 +199,7 @@ class AppStack(Stack):
         upload_handler.add_to_role_policy(
             iam.PolicyStatement(
                 actions=["glue:StartJobRun"],
-                resources=[glue_job.attr_arn],
+                resources=[f"arn:aws:glue:*:*:job/{glue_job.name}"],
             )
         )
 
