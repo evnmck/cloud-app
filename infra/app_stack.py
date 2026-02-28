@@ -63,6 +63,13 @@ class AppStack(Stack):
             max_age=3000,
         )
 
+        # ---------- Shared Lambda Layer ----------
+        shared_layer = _lambda.LayerVersion(
+            self, "SharedLayer",
+            code=_lambda.Code.from_asset("../backend/layers/shared"),
+            compatible_runtimes=[_lambda.Runtime.PYTHON_3_11],
+        )
+
         # ---------- Lambda: API ----------
         api_lambda = _lambda.Function(
             self,
@@ -71,6 +78,7 @@ class AppStack(Stack):
             runtime=_lambda.Runtime.PYTHON_3_11,
             handler="handler.handler",
             code=_lambda.Code.from_asset("../backend/api"),
+            layers=[shared_layer],
             environment={
                 "STAGE": stage,
                 "JOBS_TABLE_NAME": jobs_table.table_name,
@@ -95,7 +103,7 @@ class AppStack(Stack):
                 throttling_burst_limit=50,
             ),
             default_cors_preflight_options=apigw.CorsOptions(
-            # For dev, this is fine. You can restrict later if you want.
+            # can restrict later
             allow_origins=api_cors_origins,
             allow_methods=["GET", "POST", "PUT", "OPTIONS"],
             allow_headers=["Content-Type", "X-API-TOKEN"],
@@ -124,13 +132,14 @@ class AppStack(Stack):
             apigw.LambdaIntegration(api_lambda),
         )
 
-        #---------- Update Lambda -------------
+        #---------- Update Lambda for Pipeline -------------
         upload_handler = _lambda.Function(
             self,
             "UploadEventHandler",
             runtime=_lambda.Runtime.PYTHON_3_11,
             handler="upload_handler.handler",
-            code=_lambda.Code.from_asset("../backend/pipeline"),  # for example
+            code=_lambda.Code.from_asset("../backend/pipeline"),
+            layers=[shared_layer],
             environment={
                 "JOBS_TABLE_NAME": jobs_table.table_name,
             },
