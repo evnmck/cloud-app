@@ -3,10 +3,11 @@ import os
 import boto3
 
 dynamodb = boto3.resource("dynamodb")
-jobs_table = dynamodb.Table(os.environ["JOBS_TABLE_NAME"])
 
 def update_job_repository(job_id: str, status: str, **extra_fields):
     """Update job status and any additional fields in DynamoDB"""
+    jobs_table = dynamodb.Table(os.environ["JOBS_TABLE_NAME"])
+    
     update_expr = 'SET #status = :status, updatedAt = :now'
     attr_names = {'#status': 'status'}
     attr_values = {
