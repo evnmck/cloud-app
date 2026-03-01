@@ -1,7 +1,7 @@
 import json
 from config import Config
 from utils import response as _response
-from controllers.upload_controller import create_upload, get_job, update_job_status
+from controllers.upload_controller import create_upload, get_job, update_job
 from auth import check_auth
 
 def handler(event, context):
@@ -32,7 +32,7 @@ def handler(event, context):
     
     # PUT /jobs/{jobId}/status - optional endpoint if you want to allow manual status updates (not required for the S3 event flow)
     if path == "/jobs/{jobId}/status" and http_method == "PUT":
-        return update_job_status(event)
+        return update_job(event)
 
     # Fallback
     return _response(404, {"message": "Not found"})
