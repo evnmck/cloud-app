@@ -192,6 +192,7 @@ class AppStack(Stack):
             default_arguments={
                 "--TempDir": f"s3://{upload_bucket.bucket_name}/temp/",
                 "--job-bookmark-option": "job-bookmark-enable",
+                "--JOBS_TABLE_NAME": jobs_table.table_name,
             },
         )
 

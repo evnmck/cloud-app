@@ -1,6 +1,6 @@
 from dataclasses import asdict
 from services.upload_service import create_upload_service, get_job_service
-from shared_services import update_job_status
+from shared_services import update_job
 from utils import parse_body, response as _response
 from botocore.exceptions import ClientError
 
@@ -44,17 +44,26 @@ def get_job(event):
         return _response(200, asdict(job))
     except ClientError as e:
         return _response(500, {"message": "Failed to read job"})
-    
-def update_job_status(event):
+        
+def update_job(event):
     """
-    Update job status based on S3 event. The actual update logic is handled in the upload handler Lambda using the shared repository function (update_job_repository).
+    PUT /jobs/{jobId}/status?status=PROCESSED
+    Update job status
     """
     path_params = event.get("pathParameters") or {}
     job_id = path_params.get("jobId")
+    new_status = event.get("queryStringParameters", {}).get("status")
+    
     if not job_id:
         return _response(400, {"message": "Missing jobId in path"})
+    
+    if not new_status:
+        return _response(400, {"message": "status query parameter is required"})
+    
     try:
-        update_job_status(job_id, "UPLOADED")
+        update_job(job_id, new_status)
         return _response(200, {"message": "Job status updated"})
+    except ValueError as e:
+        return _response(400, {"error": str(e)})
     except ClientError as e:
         return _response(500, {"message": "Failed to update job status"})

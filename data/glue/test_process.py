@@ -4,6 +4,9 @@ Unit tests for Glue job process.py
 Tests extraction functions and main handler with mock data
 """
 
+import os
+os.environ["JOBS_TABLE_NAME"] = "test-jobs-table"
+
 import pytest
 import json
 from unittest.mock import Mock, patch, MagicMock
@@ -285,14 +288,18 @@ class TestProcessGame:
 
 
 class TestHandler:
+    @patch('process.jobs_table')
     @patch('process.s3_client')
-    def test_handler_success(self, mock_s3, mock_game_data):
+    def test_handler_success(self, mock_s3, mock_table, mock_game_data):
         """Test handler success"""
         # Setup mock S3
         csv_content = 'gameId,date,rawData\n779051,2025-03-28,' + json.dumps(mock_game_data).replace('\n', ' ')
         mock_s3.get_object.return_value = {
             'Body': Mock(read=Mock(return_value=csv_content.encode('utf-8')))
         }
+        
+        # Setup mock DynamoDB
+        mock_table.update_item.return_value = {}
         
         event = {
             'jobId': 'job_123',
@@ -307,9 +314,11 @@ class TestHandler:
         assert result['statusCode'] == 200
         assert 'games_processed' in json.loads(result['body'])
         mock_s3.put_object.assert_called_once()
+        mock_table.update_item.assert_called_once()
 
+    @patch('process.jobs_table')
     @patch('process.s3_client')
-    def test_handler_s3_error(self, mock_s3):
+    def test_handler_s3_error(self, mock_s3, mock_table):
         """Test handler with S3 error"""
         mock_s3.get_object.side_effect = Exception('S3 error')
         
@@ -326,13 +335,17 @@ class TestHandler:
         assert result['statusCode'] == 500
         assert 'error' in json.loads(result['body'])
 
+    @patch('process.jobs_table')
     @patch('process.s3_client')
-    def test_handler_empty_csv(self, mock_s3):
+    def test_handler_empty_csv(self, mock_s3, mock_table):
         """Test handler with empty CSV"""
         csv_content = 'gameId,date,rawData\n'
         mock_s3.get_object.return_value = {
             'Body': Mock(read=Mock(return_value=csv_content.encode('utf-8')))
         }
+        
+        # Setup mock DynamoDB
+        mock_table.update_item.return_value = {}
         
         event = {
             'jobId': 'job_123',
@@ -345,6 +358,7 @@ class TestHandler:
         result = handler(event, context)
         
         assert result['statusCode'] == 200
+        mock_table.update_item.assert_called_once()
         body = json.loads(result['body'])
         assert body['games_processed'] == 0
 
