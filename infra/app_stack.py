@@ -173,11 +173,17 @@ class AppStack(Stack):
 
         # Grant S3 access
         upload_bucket.grant_read_write(glue_role)
+        
+        # Grant DynamoDB access to Glue role for updating job status
+        jobs_table.grant_read_write_data(glue_role)
 
         glue_script_asset = s3_assets.Asset(
             self, "GlueScript",
             path="../data/glue/process.py"
         )
+        
+        # Grant Glue role read access to the script asset
+        glue_script_asset.grant_read(glue_role)
 
         # ---------- Glue job ----------
         glue_job = glue.CfnJob(
