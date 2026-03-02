@@ -220,16 +220,8 @@ class AppStack(Stack):
             },
         )
 
-        # Pass Glue job name to bridge
-        upload_bridge.add_environment("GLUE_JOB_NAME", glue_job.name)
-
-        # Grant bridge permission to trigger Glue
-        upload_bridge.add_to_role_policy(
-            iam.PolicyStatement(
-                actions=["glue:StartJobRun"],
-                resources=[f"arn:aws:glue:*:*:job/{glue_job.name}"],
-            )
-        )
+        # Pass state machine ARN to trigger
+        upload_trigger.add_environment("STATE_MACHINE_ARN", state_machine.state_machine_arn)
 
         # ---------- Step Function: Glue job orchestration ----------
         # Start Glue job
@@ -280,7 +272,4 @@ class AppStack(Stack):
 
         # Grant upload trigger permission to trigger state machine
         state_machine.grant_start_execution(upload_trigger)
-        
-        # Pass state machine ARN to upload trigger
-        upload_trigger.add_environment("STATE_MACHINE_ARN", state_machine.state_machine_arn)
 
