@@ -1,14 +1,10 @@
-#!/usr/bin/env python3
-"""
-Unit tests for Glue job process.py
-Tests extraction functions and main handler with mock data
-"""
-
 import os
 os.environ["JOBS_TABLE_NAME"] = "test-jobs-table"
 
 import pytest
 import json
+import csv
+import io
 from unittest.mock import Mock, patch, MagicMock
 from process import (
     extract_game_summary,
@@ -292,8 +288,17 @@ class TestHandler:
     @patch('process.s3_client')
     def test_handler_success(self, mock_s3, mock_dynamodb, mock_game_data):
         """Test handler success"""
-        # Setup mock S3
-        csv_content = 'gameId,date,rawData\n779051,2025-03-28,' + json.dumps(mock_game_data).replace('\n', ' ')
+        # Setup mock S3 with properly formatted CSV
+        csv_buffer = io.StringIO()
+        writer = csv.DictWriter(csv_buffer, fieldnames=['gameId', 'date', 'rawData'])
+        writer.writeheader()
+        writer.writerow({
+            'gameId': '779051',
+            'date': '2025-03-28',
+            'rawData': json.dumps(mock_game_data)
+        })
+        csv_content = csv_buffer.getvalue()
+        
         mock_s3.get_object.return_value = {
             'Body': Mock(read=Mock(return_value=csv_content.encode('utf-8')))
         }

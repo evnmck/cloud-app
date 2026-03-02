@@ -1,6 +1,6 @@
 from dataclasses import asdict
 from services.upload_service import create_upload_service, get_job_service
-from shared_services import update_job
+from shared_services import update_job as update_job_repository
 from utils import parse_body, response as _response
 from botocore.exceptions import ClientError
 
@@ -61,7 +61,7 @@ def update_job(event):
         return _response(400, {"message": "status query parameter is required"})
     
     try:
-        update_job(job_id, new_status)
+        update_job_repository(job_id, new_status)
         return _response(200, {"message": "Job status updated"})
     except ValueError as e:
         return _response(400, {"error": str(e)})

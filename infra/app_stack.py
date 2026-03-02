@@ -131,6 +131,13 @@ class AppStack(Stack):
             apigw.LambdaIntegration(api_lambda),
         )
 
+        # /jobs/{jobId}/status -> GET
+        status_res = job_id_res.add_resource("status")
+        status_res.add_method(
+            "GET",
+            apigw.LambdaIntegration(api_lambda),
+        )
+
         # (Optional) /health -> GET
         health_res = api.root.add_resource("health")
         health_res.add_method(
@@ -204,6 +211,21 @@ class AppStack(Stack):
         glue_script_asset.grant_read(glue_role)
 
         # ---------- Glue job ----------
+        glue_default_args = {
+            "--TempDir": f"s3://{upload_bucket.bucket_name}/temp/",
+            "--job-bookmark-option": "job-bookmark-enable",
+            "--additional-python-modules": "pandas==2.0.3",
+            "--JOBS_TABLE_NAME": jobs_table.table_name,
+        }
+        
+        # Dev only: add test defaults for manual testing
+        if stage == "dev":
+            glue_default_args.update({
+                "--jobId": "test_id",
+                "--bucket": upload_bucket.bucket_name,
+                "--key": "tests_data/test_id/yankees_games_test.csv",
+            })
+        
         glue_job = glue.CfnJob(
             self, "DataProcessingJob",
             name=f"evnmck-baseball-{stage}-processing",
@@ -213,14 +235,7 @@ class AppStack(Stack):
                 python_version="3.9",
                 script_location=glue_script_asset.s3_object_url,
             ),
-            default_arguments={
-                "--TempDir": f"s3://{upload_bucket.bucket_name}/temp/",
-                "--job-bookmark-option": "job-bookmark-enable",
-                "--JOBS_TABLE_NAME": jobs_table.table_name,
-                "--jobId": "test_id",
-                "--bucket": upload_bucket.bucket_name,
-                "--key": "tests_data/test_id/yankees_games_test.csv",
-            },
+            default_arguments=glue_default_args,
         )
 
         # ---------- Step Function: Glue job orchestration ----------

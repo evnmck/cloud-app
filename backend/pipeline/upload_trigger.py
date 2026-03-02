@@ -6,6 +6,7 @@ Receives S3 upload events, updates job to PROCESSING, and triggers Step Function
 import os
 import json
 import boto3
+import uuid
 from shared_services import update_job
 
 stepfunctions = boto3.client("stepfunctions")
@@ -31,10 +32,14 @@ def handler(event, context):
             # Update job to PROCESSING
             update_job(job_id, "PROCESSING")
 
+            # Generate unique execution name: jobId + timestamp/UUID suffix
+            # Allows retries/re-uploads of same job without ExecutionAlreadyExists error
+            execution_name = f"{job_id}-{uuid.uuid4().hex[:8]}"
+
             # Trigger Step Function
             stepfunctions.start_execution(
                 stateMachineArn=os.environ["STATE_MACHINE_ARN"],
-                name=f"{job_id}-execution",
+                name=execution_name,
                 input=json.dumps({
                     "jobId": job_id,
                     "bucket": bucket,
@@ -42,7 +47,7 @@ def handler(event, context):
                 })
             )
             
-            print(f"Step Function triggered for job {job_id}")
+            print(f"Step Function triggered for job {job_id} (execution: {execution_name})")
         except Exception as e:
             print(f"Error processing S3 event: {str(e)}")
             # Update job status to FAILED on error
