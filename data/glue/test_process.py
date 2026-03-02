@@ -288,9 +288,9 @@ class TestProcessGame:
 
 
 class TestHandler:
-    @patch('process.jobs_table')
+    @patch('process.dynamodb')
     @patch('process.s3_client')
-    def test_handler_success(self, mock_s3, mock_table, mock_game_data):
+    def test_handler_success(self, mock_s3, mock_dynamodb, mock_game_data):
         """Test handler success"""
         # Setup mock S3
         csv_content = 'gameId,date,rawData\n779051,2025-03-28,' + json.dumps(mock_game_data).replace('\n', ' ')
@@ -299,7 +299,9 @@ class TestHandler:
         }
         
         # Setup mock DynamoDB
+        mock_table = MagicMock()
         mock_table.update_item.return_value = {}
+        mock_dynamodb.Table.return_value = mock_table
         
         event = {
             'jobId': 'job_123',
@@ -316,11 +318,15 @@ class TestHandler:
         mock_s3.put_object.assert_called_once()
         mock_table.update_item.assert_called_once()
 
-    @patch('process.jobs_table')
+    @patch('process.dynamodb')
     @patch('process.s3_client')
-    def test_handler_s3_error(self, mock_s3, mock_table):
+    def test_handler_s3_error(self, mock_s3, mock_dynamodb):
         """Test handler with S3 error"""
         mock_s3.get_object.side_effect = Exception('S3 error')
+        
+        # Setup mock DynamoDB
+        mock_table = MagicMock()
+        mock_dynamodb.Table.return_value = mock_table
         
         event = {
             'jobId': 'job_123',
@@ -335,9 +341,9 @@ class TestHandler:
         assert result['statusCode'] == 500
         assert 'error' in json.loads(result['body'])
 
-    @patch('process.jobs_table')
+    @patch('process.dynamodb')
     @patch('process.s3_client')
-    def test_handler_empty_csv(self, mock_s3, mock_table):
+    def test_handler_empty_csv(self, mock_s3, mock_dynamodb):
         """Test handler with empty CSV"""
         csv_content = 'gameId,date,rawData\n'
         mock_s3.get_object.return_value = {
@@ -345,7 +351,9 @@ class TestHandler:
         }
         
         # Setup mock DynamoDB
+        mock_table = MagicMock()
         mock_table.update_item.return_value = {}
+        mock_dynamodb.Table.return_value = mock_table
         
         event = {
             'jobId': 'job_123',
