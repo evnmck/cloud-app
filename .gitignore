@@ -55,3 +55,5 @@ dist-ssr
 .env.*
 !.env.example
 backend/api/.coverage
+data/glue/.coverage
+data/glue/htmlcov/
