@@ -230,23 +230,3 @@ def handler(event, context):
             'body': json.dumps({'error': str(e)})
         }
 
-
-# For local testing
-if __name__ == '__main__':
-    # Read sample game from yankees_games.csv
-    import sys
-    sys.path.insert(0, '/Users/evanmcknight/Projects/cloud-app/test-data')
-    
-    with open('/Users/evanmcknight/Projects/cloud-app/test-data/yankees_games.csv', 'r') as f:
-        reader = csv.DictReader(f)
-        for i, row in enumerate(reader):
-            if i == 0:  # Process first game
-                game_id = row.get('gameId')
-                date = row.get('date')
-                raw_data = row.get('rawData')
-                
-                processed = process_game(raw_data, game_id, date)
-                
-                # Pretty print results
-                print(json.dumps(processed, indent=2, default=str))
-                break
