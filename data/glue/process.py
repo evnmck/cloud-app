@@ -136,6 +136,25 @@ def process_game(raw_game_json, game_id, date):
         if not isinstance(game_data, dict):
             print(f"Warning: game_data is {type(game_data)} for game {game_id}, skipping")
             return None
+        
+        # Recursively parse any nested JSON strings
+        def parse_nested(obj):
+            if isinstance(obj, dict):
+                for k, v in obj.items():
+                    if isinstance(v, str) and v.startswith('{'):
+                        try:
+                            obj[k] = json.loads(v)
+                            parse_nested(obj[k])
+                        except:
+                            pass
+                    elif isinstance(v, dict) or isinstance(v, list):
+                        parse_nested(v)
+            elif isinstance(obj, list):
+                for item in obj:
+                    if isinstance(item, dict) or isinstance(item, list):
+                        parse_nested(item)
+        
+        parse_nested(game_data)
             
     except json.JSONDecodeError as e:
         print(f"Failed to parse JSON for game {game_id}: {str(e)}")
@@ -152,6 +171,10 @@ def process_game(raw_game_json, game_id, date):
         }
     except Exception as e:
         print(f"Error extracting data for game {game_id}: {str(e)}")
+        print(f"game_data type: {type(game_data)}")
+        print(f"game_data keys: {game_data.keys() if isinstance(game_data, dict) else 'N/A'}")
+        import traceback
+        traceback.print_exc()
         raise
 
 
@@ -227,9 +250,9 @@ def handler(event, context):
         processed_games = []
         
         for _, row in df.iterrows():
-            game_id = row.get('gameId')
-            date = row.get('date')
-            raw_data = row.get('rawData')
+            game_id = row['gameId']
+            date = row['date']
+            raw_data = row['rawData']
             
             print(f"Processing game {game_id}, rawData type: {type(raw_data)}, length: {len(str(raw_data)) if raw_data else 0}")
             
