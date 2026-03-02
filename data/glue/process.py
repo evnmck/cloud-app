@@ -170,10 +170,11 @@ def handler(event, context):
     """AWS Glue job handler"""
     print(f"Event: {event}")
     
-    # Get S3 object details from event
-    job_id = event.get('jobId')
-    bucket = event.get('bucket', context.invoked_function_arn.split(':')[5].replace('bucket/', ''))
-    key = event.get('key')
+    # Get job parameters from Glue job arguments
+    # These are passed by Step Function in the RUN_JOB integration
+    job_id = event.get('jobId') or sys.argv[sys.argv.index('--jobId') + 1] if '--jobId' in sys.argv else None
+    bucket = event.get('bucket') or sys.argv[sys.argv.index('--bucket') + 1] if '--bucket' in sys.argv else None
+    key = event.get('key') or sys.argv[sys.argv.index('--key') + 1] if '--key' in sys.argv else None
     
     print(f"Processing s3://{bucket}/{key}")
     
