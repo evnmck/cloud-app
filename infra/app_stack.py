@@ -221,17 +221,20 @@ class AppStack(Stack):
         )
 
         # ---------- Step Function: Glue job orchestration ----------
-        # Start Glue job
+        # Start Glue job - pass jobId, bucket, key as Glue job arguments
+        # Note: GlueStartJobRun takes arguments as a dict where keys are arg names
+        # and values can use JSONPath to reference the Step Function input
         start_glue_job = sfn_tasks.GlueStartJobRun(
             self,
             "StartGlueJob",
             glue_job_name=glue_job.name,
             integration_pattern=sfn.IntegrationPattern.RUN_JOB,
-            arguments=sfn.TaskInput.from_object({
-                "--jobId.$": "$.jobId",
-                "--bucket.$": "$.bucket",
-                "--key.$": "$.key",
-            }),
+            # Use TaskInput to properly map state machine input to Glue arguments
+            arguments={
+                "--jobId": sfn.JsonPath.string_at("$.jobId"),
+                "--bucket": sfn.JsonPath.string_at("$.bucket"),
+                "--key": sfn.JsonPath.string_at("$.key"),
+            },
         )
 
         # Handle failure - invoke error handler Lambda
