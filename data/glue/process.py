@@ -231,3 +231,17 @@ def handler(event, context):
             'body': json.dumps({'error': str(e)})
         }
 
+
+# Glue job entry point - invoke handler when script runs
+if __name__ == '__main__':
+    # Get parameters from sys.argv passed by Glue
+    glue_args = {}
+    for i, arg in enumerate(sys.argv):
+        if arg.startswith('--'):
+            key = arg[2:]
+            if i + 1 < len(sys.argv) and not sys.argv[i + 1].startswith('--'):
+                glue_args[key] = sys.argv[i + 1]
+    
+    result = handler(glue_args, None)
+    print(f"Handler result: {result}")
+
