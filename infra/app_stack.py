@@ -241,15 +241,17 @@ class AppStack(Stack):
             }),
         )
 
-        # Define workflow
-        definition = start_glue_job.next(sfn.Pass(self, "JobSucceeded"))
-        
-        # Add error handling
-        definition.add_catch(
+        # Success state
+        job_succeeded = sfn.Pass(self, "JobSucceeded")
+
+        # Define workflow with error handling
+        start_glue_job.add_catch(
             handler=handle_failure,
             errors=["States.ALL"],
             result_path="$"
         )
+        
+        definition = start_glue_job.next(job_succeeded)
 
         # Create state machine
         state_machine = sfn.StateMachine(
