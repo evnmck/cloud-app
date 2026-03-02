@@ -1,15 +1,120 @@
 # cloud-app
 
-A full-stack cloud application with React frontend, Python Lambda backend, and AWS infrastructure managed via CDK.
+Full-stack cloud platform for processing and analyzing baseball game data. Features real-time file uploads, serverless data processing pipeline, and a React frontend with JWT authentication.
 
-## Architecture
+## 🏗️ Architecture Overview
 
-- **Frontend**: React + Vite (TypeScript/JavaScript)
-- **Backend**: Python Lambda functions with API Gateway
-- **Infrastructure**: AWS CDK (Python)
-- **Database**: DynamoDB (for job storage)
-- **Storage**: S3 (for file uploads)
-- **CI/CD**: GitHub Actions (automated deployments)
+```
+┌─────────────────────────────────────────────────────────────────────────┐
+│                            FRONTEND (React/Vite)                         │
+│  ┌──────────────────────┐              ┌──────────────────────┐          │
+│  │  Login Page          │              │  Dashboard           │          │
+│  │  (JWT Auth)          │◄────────────►│  (Job Status Poll)   │          │
+│  └──────────────────────┘              └──────────────────────┘          │
+│                │                                │                        │
+│                └────────────────┬───────────────┘                        │
+└─────────────────────────────────┼────────────────────────────────────────┘
+                                  │
+                    ┌─────────────┴─────────────┐
+                    │ API Gateway (CORS)        │
+                    │ X-API-TOKEN Header Auth   │
+                    └─────────────┬─────────────┘
+                                  │
+┌─────────────────────────────────┼────────────────────────────────────────┐
+│                         BACKEND (Lambda + AWS Services)                   │
+│                                  │                                        │
+│  ┌──────────────────────────────▼──────────────────┐                    │
+│  │  API Lambda (handler.py)                       │                    │
+│  │  ├─ POST /uploads (create job)                │                    │
+│  │  ├─ GET /jobs/{jobId} (check status)          │                    │
+│  │  └─ PUT /jobs/{jobId}/status (update status)  │                    │
+│  └──────────────────────────────┬──────────────────┘                    │
+│                                  │                                        │
+│  ┌──────────────┐  ┌──────────────▼───────────┐  ┌──────────────┐       │
+│  │  S3 Bucket   │  │  DynamoDB Jobs Table     │  │  Upload      │       │
+│  │  (CSV/JSON)  │  │  (jobId, status, etc)    │  │  Trigger     │       │
+│  └──────┬───────┘  └──────────────────────────┘  │  Lambda      │       │
+│         │                                         └──────┬───────┘       │
+│         │                     ┌───────────────────────────┘              │
+│         │                     │                                          │
+│  ┌──────▼──────────────────────▼───────────────────────┐                │
+│  │  Step Function (State Machine)                     │                │
+│  │  ├─ Start Glue Job                                │                │
+│  │  ├─ Error Handler Lambda                          │                │
+│  │  └─ Fail State (on error)                         │                │
+│  └──────┬──────────────────────────────────────────────┘                │
+│         │                                                               │
+│  ┌──────▼──────────────────────────────────────────────┐                │
+│  │  AWS Glue Job (Python 3.9)                        │                │
+│  │  • Read CSV with pandas (large field support)     │                │
+│  │  • Parse nested JSON recursively                  │                │
+│  │  • Extract 4 data types per game:                │                │
+│  │    - Game Summary (teams, scores, venue)         │                │
+│  │    - Weather (temp, wind, condition)             │                │
+│  │    - Play-by-Play (pitch data, events)           │                │
+│  │    - Player Stats (calculated BA, OBP, SLG)      │                │
+│  │  • Save processed JSON to S3                     │                │
+│  │  • Update DynamoDB job status                    │                │
+│  └──────────────────────────────────────────────────┘                │
+│                                                                         │
+└─────────────────────────────────────────────────────────────────────────┘
+
+Data Flow: CSV Upload → S3 → Trigger Lambda → Step Function → Glue Job → 
+           Processed JSON to S3 → DynamoDB status update → Frontend polling
+```
+
+## 📊 Current Status (PR1 Complete)
+
+### ✅ Completed Features
+
+**Data Processing Pipeline (PR1)**
+- Serverless CSV upload with S3 pre-signed URLs
+- AWS Glue job with pandas-based CSV processing (handles 1.4MB+ fields)
+- Recursive JSON parsing for nested structures
+- Defensive type checking for production data inconsistencies
+- 4 data extraction functions: summary, weather, plays, player_stats
+- Calculated player stats: batting average, OBP, slugging percentage
+- Step Function orchestration with error handling and fail state
+- DynamoDB job tracking (PENDING → PROCESSING → PROCESSED/FAILED)
+- Real-time frontend polling (2-second intervals)
+- Comprehensive test suite (16+ unit tests, pytest + moto)
+- AWS CDK infrastructure as code
+
+**Infrastructure**
+- API Gateway with token-based auth (X-API-TOKEN header)
+- 4 Lambda functions with proper IAM roles
+- DynamoDB on-demand billing
+- S3 with CORS configured
+- VPC/networking for production readiness
+
+**Frontend**
+- React/Vite dashboard with real-time polling
+- Upload form with file selection
+- Job status display with download link
+- Clean component architecture
+
+### 📋 Requirements Specifications
+
+**Data Processing**
+- Input: CSV with 3 columns (gameId, date, rawData)
+- CSV field size: Up to 1.4MB per row (pandas handles automatically)
+- Processing time: ~15-30 seconds for 5 games
+- Output: JSON array with 4+ data types per game
+- Error handling: Graceful failure with status tracking
+
+**Performance**
+- Lambda concurrency: Auto-scaling
+- DynamoDB: On-demand (no provisioned capacity)
+- S3: Standard storage with lifecycle policies
+- Glue job: Python 3.9 shell job, 15-minute timeout
+
+**Security**
+- API token authentication (dev: test token, prod: GitHub Secrets)
+- CORS: Configurable by stage
+- IAM least privilege for each service
+- No hardcoded secrets in code
+- Dependency pinning for reproducibility
+
 
 ## Prerequisites
 
@@ -22,24 +127,65 @@ A full-stack cloud application with React frontend, Python Lambda backend, and A
 
 ```
 cloud-app/
-├── frontend/              # React/Vite application
+├── frontend/                    # React/Vite application
 │   ├── src/
-│   │   ├── pages/        # Login, Dashboard
-│   │   ├── components/   # JobStatus, UploadForm, etc.
-│   │   ├── contexts/     # AuthContext
-│   │   └── api/          # API client
+│   │   ├── pages/              # Login, Dashboard
+│   │   ├── components/         # JobStatus, UploadForm, RequireAuth
+│   │   ├── contexts/           # AuthContext
+│   │   ├── api/                # API client (axios)
+│   │   └── assets/
 │   ├── package.json
-│   └── vite.config.js
+│   ├── vite.config.js
+│   └── eslint.config.js
+│
 ├── backend/
-│   ├── api/              # API Lambda handler
-│   └── pipeline/         # S3 event handler
-├── infra/                # AWS CDK stacks
-│   ├── app_stack.py      # Main infrastructure definition
-│   ├── requirements.txt
-│   └── cdk.json
-├── data/                 # Data pipeline scripts
-└── test-data/            # Sample test data
+│   ├── api/                     # API Lambda handler
+│   │   ├── handler.py          # Main entry point
+│   │   ├── controllers/        # Route handlers
+│   │   ├── services/           # Business logic
+│   │   ├── repositories/       # Data access layer
+│   │   ├── models/             # Data models
+│   │   ├── auth.py             # Token validation
+│   │   ├── config.py           # Configuration
+│   │   ├── utils.py            # Utilities
+│   │   ├── requirements.txt
+│   │   └── tests/              # Unit tests
+│   │
+│   ├── pipeline/               # S3 trigger & orchestration Lambdas
+│   │   ├── upload_trigger.py   # S3 event → Step Function
+│   │   ├── error_handler.py    # Catch failures from Glue
+│   │   └── requirements.txt
+│   │
+│   └── layers/
+│       └── shared/             # Lambda layer for shared code
+│           └── python/
+│               └── shared_services.py  # DynamoDB access
+│
+├── infra/                       # AWS CDK infrastructure
+│   ├── app_stack.py            # Main CDK stack
+│   ├── app.py                  # CDK app entry
+│   ├── cdk.json
+│   └── requirements.txt
+│
+├── data/
+│   ├── glue/                    # Glue job for data processing
+│   │   ├── process.py          # Extraction logic
+│   │   ├── requirements.txt    # pandas, boto3
+│   │   └── test_process.py     # 16+ unit tests
+│   │
+│   └── README.md               # Data pipeline docs
+│
+├── test-data/                   # Sample test data
+│   ├── create_data.py          # MLB API fetcher with retry logic
+│   ├── yankees_games.csv       # Test CSV
+│   ├── yankees_games.json      # Raw responses
+│   └── requirements.txt
+│
+├── README.md                    # This file
+└── .github/
+    └── workflows/              # GitHub Actions CI/CD
 ```
+
 
 ## Local Setup
 
@@ -129,6 +275,237 @@ cdk deploy MyApp-dev --require-approval never
 # Deploy to prod
 cdk deploy MyApp-prod --require-approval never
 ```
+
+## GitHub Actions & Continuous Integration
+
+### Automated CI/CD Pipeline
+
+The project uses GitHub Actions for automated testing and deployment. All workflows are defined in `.github/workflows/`.
+
+### Workflow Triggers
+
+| Trigger | Workflow | Stage | Action |
+|---------|----------|-------|--------|
+| **Pull Request** | `test.yml` | - | Run all tests (Glue, API, frontend) |
+| **PR to main** | `deploy.yml` | dev | Deploy to dev environment |
+| **Merge to main** | `deploy.yml` | prod | Deploy to prod environment |
+| **Manual (Anytime)** | `manual-test.yml` | - | Run specific or all test suites |
+| **Manual (Anytime)** | `deploy.yml` | dev/prod | Redeploy without code changes |
+
+### Test Pipeline (Runs on Every PR)
+
+```yaml
+# .github/workflows/test.yml
+name: Tests
+
+on: [pull_request, push]
+
+jobs:
+  glue-tests:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v3
+      - uses: actions/setup-python@v4
+        with:
+          python-version: '3.9'
+      - name: Install dependencies
+        run: |
+          cd data/glue
+          pip install -r requirements.txt
+      - name: Run Glue tests
+        run: cd data/glue && pytest test_process.py -v --cov
+      - name: Upload coverage
+        uses: codecov/codecov-action@v3
+
+  api-tests:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v3
+      - uses: actions/setup-python@v4
+        with:
+          python-version: '3.11'
+      - name: Install dependencies
+        run: |
+          cd backend/api
+          pip install -r requirements.txt
+      - name: Run API tests
+        run: cd backend/api && pytest tests/ -v --cov
+      - name: Upload coverage
+        uses: codecov/codecov-action@v3
+
+  frontend-lint:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v3
+      - uses: actions/setup-node@v3
+        with:
+          node-version: '20'
+      - name: Install dependencies
+        run: cd frontend && npm install
+      - name: Run ESLint
+        run: cd frontend && npm run lint
+```
+
+**Test Results**: All tests must pass before merging to `main`. PR shows ✅ or ❌ status.
+
+### Manual Test Workflow (Run Anytime)
+
+Run tests on-demand without committing code. Useful for testing fixes, validating dependencies, or re-running after environment changes.
+
+**How to Trigger**:
+
+1. Go to repo → **Actions** tab
+2. Click **Manual Test Run** workflow
+3. Click **Run workflow** button
+4. Select test suite:
+   - `all` - Run Glue, API, and Frontend tests (default)
+   - `glue` - Run only Glue job tests
+   - `api` - Run only API Lambda tests
+   - `frontend` - Run only frontend linting & build
+5. Click **Run workflow**
+
+**What Happens**:
+- Selected tests run in parallel
+- Coverage reports uploaded to Codecov
+- Summary shows pass/fail for each suite
+- Results appear in workflow run logs
+
+**Example Scenarios**:
+- ✅ After upgrading pandas: Run `glue` tests to verify
+- ✅ After Glue code fix: Run `glue` tests before committing
+- ✅ Validate all dependencies: Run `all` tests
+- ✅ Check frontend after dependency update: Run `frontend` tests
+
+### Deployment Pipeline (Runs on Merge or Manual Trigger)
+
+```yaml
+# .github/workflows/deploy.yml
+name: Deploy CDK Stacks
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:  # Manual trigger in GitHub Actions tab
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        stage: [dev, prod]
+    steps:
+      - uses: actions/checkout@v3
+      
+      - name: Configure AWS credentials
+        uses: aws-actions/configure-aws-credentials@v1
+        with:
+          aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
+          aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+          aws-region: ${{ secrets.AWS_REGION }}
+      
+      - name: Setup Python
+        uses: actions/setup-python@v4
+        with:
+          python-version: '3.11'
+      
+      - name: Install CDK dependencies
+        run: |
+          cd infra
+          pip install -r requirements.txt
+      
+      - name: Set environment variables
+        run: |
+          echo "STAGE=${{ matrix.stage }}" >> $GITHUB_ENV
+          echo "API_TOKEN=${{ secrets[format('API_TOKEN_{0}', matrix.stage)] }}" >> $GITHUB_ENV
+      
+      - name: CDK Synth
+        run: cd infra && cdk synth
+      
+      - name: CDK Deploy
+        run: cd infra && cdk deploy MyApp-${{ matrix.stage }} --require-approval never
+      
+      - name: Verify Deployment
+        run: |
+          API_URL=$(aws cloudformation describe-stacks \
+            --stack-name MyApp-${{ matrix.stage }} \
+            --query 'Stacks[0].Outputs[?OutputKey==`ApiEndpoint`].OutputValue' \
+            --output text)
+          curl -H "X-API-TOKEN: $API_TOKEN" $API_URL/health
+```
+
+### Testing Environment
+
+Tests run in isolated GitHub Actions containers:
+- **Glue tests**: Python 3.9 (matches Glue runtime)
+- **API tests**: Python 3.11 (matches Lambda runtime)
+- **Frontend tests**: Node 20 (matches production)
+- **All tests**: moto for AWS service mocking (no real AWS calls)
+
+### Test Coverage
+
+Coverage reports are automatically uploaded to Codecov:
+
+```bash
+# View coverage locally before committing
+cd data/glue
+pytest test_process.py --cov --cov-report=html
+open htmlcov/index.html
+
+cd ../../backend/api
+pytest tests/ --cov --cov-report=html
+open htmlcov/index.html
+```
+
+### Viewing Workflow Results
+
+1. **In GitHub**:
+   - Go to repo → Actions tab
+   - Click workflow run to see detailed logs
+   - Each job shows status (✅ passed / ❌ failed)
+   - Expand job steps to debug failures
+
+2. **In PR**:
+   - Scroll to bottom of PR
+   - See "Status checks" section
+   - Click "Details" to view full workflow logs
+
+3. **Local Pre-Commit Checks** (Optional):
+   ```bash
+   # Run tests before committing locally
+   cd data/glue && pytest test_process.py
+   cd ../../backend/api && pytest tests/
+   cd ../../frontend && npm run lint
+   ```
+
+### Common Workflow Issues
+
+| Issue | Solution |
+|-------|----------|
+| Tests fail on PR | Check logs in Actions tab for specific error |
+| Deploy fails (credentials) | Verify AWS secrets in Settings → Secrets |
+| Deploy fails (CDK) | Run `cdk synth` locally to validate template |
+| Token environment variable missing | Add to GitHub Secrets: `API_TOKEN_DEV`, `API_TOKEN_PROD` |
+| Permissions error on S3/DynamoDB | Check IAM role attached to AWS credentials |
+
+### Secrets Required for CI/CD
+
+Configure these in GitHub Settings → Secrets:
+
+```
+AWS_ACCESS_KEY_ID           # IAM user access key
+AWS_SECRET_ACCESS_KEY       # IAM user secret key
+AWS_REGION                  # e.g., us-east-1
+ACCOUNT_ID                  # Your AWS account ID
+API_TOKEN_DEV               # Token for dev environment
+API_TOKEN_PROD              # Token for prod environment
+```
+
+### Workflow Statistics (Monthly)
+
+- **Tests per PR**: ~50-100 (depending on code changes)
+- **Average test duration**: ~5-10 minutes
+- **Deploy duration**: ~15 minutes per stage
+- **Success rate target**: 100% (no merges without passing tests)
 
 ## Authentication
 
@@ -245,6 +622,189 @@ Check:
 1. Verify CORS is enabled in API Gateway (default configured in CDK)
 2. Check S3 bucket CORS rules in AWS Console
 3. Ensure frontend origin matches `CORS_ORIGIN` environment variable
+
+## Key Technical Decisions
+
+### CSV Processing
+- **Pandas** instead of csv module: Automatic large field handling (1.4MB+)
+- **Defensive type checking**: Every `.get()` call validates dict type before chaining
+- **Nested JSON parsing**: Recursive conversion of string-encoded JSON to dicts
+
+### Glue Job
+- **Python 3.9 Shell job**: Lightweight, quick startup
+- **Pandas dependency**: Via `--additional-python-modules` in CDK
+- **Version pinning**: pandas==2.2.0 in both requirements.txt and CDK args
+- **Error handling**: Exceptions raised → Step Function catch → error handler Lambda
+
+### Step Function
+- **RUN_JOB pattern**: Direct Glue invocation with task input mapping
+- **Fail state on error**: Ensures execution status reflects job outcome
+- **15-minute timeout**: Covers typical game data processing
+- **Retry-safe naming**: UUID suffix prevents ExecutionAlreadyExists errors
+
+### Player Stats
+- **Calculated fields**: BA, OBP, SLG computed from raw stats (not from API)
+- **String format**: ".500" format (e.g., "0.667") for display/analytics
+- **Filtered players**: Skip entries with zero activity (0 at-bats, hits, walks)
+
+### Authentication (Current)
+- **Token-based**: Simple X-API-TOKEN header validation
+- **No JWT yet**: Planned for PR2
+- **Stage-aware**: Different tokens for dev/prod via GitHub Secrets
+
+## Testing
+
+### Glue Job Tests
+
+```bash
+cd data/glue
+python -m pytest test_process.py -v
+```
+
+- 16+ unit tests with moto for AWS service mocking
+- Covers: data extraction, type checking, edge cases
+- All passing ✅
+
+### API Tests
+
+```bash
+cd backend/api
+python -m pytest tests/ -v --cov
+```
+
+- 24 integration tests
+- Covers: authentication, CORS, error handling
+- Requires: `shared_services` path in `conftest.py` ✅
+
+### Test Data
+
+Generate fresh test data from MLB API:
+```bash
+cd test-data
+python -m venv venv
+source venv/bin/activate
+pip install -r requirements.txt
+python create_data.py
+```
+
+Creates: `yankees_games.csv` with 5 games of data
+
+## Future Work (PR2-7 Roadmap)
+
+### PR2: Authentication (BFF Lambda + JWT)
+**Goal**: Replace token-based auth with JWT-based system
+
+- Create `/auth/login` endpoint (BFF Lambda)
+- Accept username/password
+- Generate JWT token (10-minute expiry)
+- Token refresh mechanism
+- User table in DynamoDB
+
+**Impact**: Frontend gets JWT from login, includes in Authorization header
+
+### PR3: Frontend Auth Integration
+**Goal**: Add login form and session management
+
+- Login page component
+- RequireAuth wrapper for protected routes
+- JWT storage in localStorage (httpOnly cookie for production)
+- Logout functionality
+- Session persistence across page reloads
+
+### PR4: E2E Test Suite
+**Goal**: Test complete user workflows
+
+- Playwright or Cypress for browser automation
+- Test: login → upload → polling → success
+- Test: error cases and edge conditions
+- CI/CD integration
+
+### PR5: Bedrock AI Integration
+**Goal**: Generate insights from processed game data
+
+- Lambda function for Bedrock API calls
+- Prompt engineering for game summaries
+- Store AI summaries in DynamoDB
+- Retrieve and display in frontend
+
+### PR6: Report Display UI
+**Goal**: Beautiful report visualization
+
+- React components for game reports
+- Tabular player stats display
+- Charts for trends (using Chart.js or Recharts)
+- Export to PDF
+
+### PR7: Full End-to-End Testing & Production Hardening
+**Goal**: Comprehensive testing and performance optimization
+
+- Load testing with k6 or Artillery
+- Database query optimization
+- Lambda layer consolidation
+- Security audit
+- Documentation updates
+
+---
+
+### Detailed PR2 Plan: JWT Authentication
+
+#### Architecture
+```
+┌──────────────────┐              ┌──────────────────┐
+│  Frontend        │              │  BFF Lambda      │
+│  ├─ Login Form   │──POST──────► │  ├─ /auth/login  │
+│  │  (user/pass)  │  /auth/login │  │  - Verify     │
+│  │               │              │  │  - JWT gen     │
+│  │               │◄──200────────│  │  - Store user  │
+│  │   JWT token   │              │  └──────────────┘
+│  │               │                      │
+│  ├─ API Requests │                      │ 🆕
+│  │  + JWT in     │                      ▼
+│  │  header       │              ┌──────────────────┐
+│  └───────────────┘              │  DynamoDB        │
+│                                 │  ├─ users table  │
+│                                 │  ├─ username     │
+│                                 │  ├─ password (🔒)│
+│                                 │  ├─ createdAt    │
+│                                 │  └─ updatedAt    │
+│                                 └──────────────────┘
+```
+
+#### Changes Required
+1. **CDK** (`infra/app_stack.py`)
+   - Add `/auth/login` POST route
+   - New BFF Lambda function
+   - Users DynamoDB table (username as key)
+
+2. **Backend** (`backend/api/handler.py`)
+   - New `/auth/login` endpoint
+   - JWT generation (using PyJWT)
+   - Password hashing (bcrypt)
+
+3. **Frontend** (`src/pages/Login.jsx`)
+   - Username/password form
+   - API call to `/auth/login`
+   - Store JWT in localStorage
+   - Redirect to Dashboard on success
+
+4. **Dependencies**
+   - PyJWT (token generation)
+   - bcrypt (password hashing)
+   - cryptography (JWT signing)
+
+#### Testing
+- Unit: JWT generation, token validation
+- Integration: Login flow, protected routes
+- E2E: Full login to dashboard workflow
+
+#### Timeline
+- Design: 1 hour
+- Implementation: 4 hours
+- Testing: 2 hours
+- Review: 1 hour
+- **Total**: ~8 hours
+
+---
 
 ## Contributing
 

@@ -1,0 +1,110 @@
+name: Manual Test Run
+
+on:
+  workflow_dispatch:
+    inputs:
+      test_suite:
+        description: 'Which tests to run'
+        required: true
+        default: 'all'
+        type: choice
+        options:
+          - all
+          - glue
+          - api
+          - frontend
+
+jobs:
+  glue-tests:
+    if: github.event.inputs.test_suite == 'all' || github.event.inputs.test_suite == 'glue'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v3
+      
+      - name: Setup Python 3.9
+        uses: actions/setup-python@v4
+        with:
+          python-version: '3.9'
+      
+      - name: Install dependencies
+        run: |
+          cd data/glue
+          pip install -r requirements.txt
+      
+      - name: Run Glue tests
+        run: |
+          cd data/glue
+          pytest test_process.py -v --cov --cov-report=term-missing
+      
+      - name: Upload coverage report
+        uses: codecov/codecov-action@v3
+        with:
+          files: ./data/glue/.coverage
+          flags: glue
+
+  api-tests:
+    if: github.event.inputs.test_suite == 'all' || github.event.inputs.test_suite == 'api'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v3
+      
+      - name: Setup Python 3.11
+        uses: actions/setup-python@v4
+        with:
+          python-version: '3.11'
+      
+      - name: Install dependencies
+        run: |
+          cd backend/api
+          pip install -r requirements.txt
+      
+      - name: Run API tests
+        run: |
+          cd backend/api
+          pytest tests/ -v --cov --cov-report=term-missing
+      
+      - name: Upload coverage report
+        uses: codecov/codecov-action@v3
+        with:
+          files: ./backend/api/.coverage
+          flags: api
+
+  frontend-tests:
+    if: github.event.inputs.test_suite == 'all' || github.event.inputs.test_suite == 'frontend'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v3
+      
+      - name: Setup Node 20
+        uses: actions/setup-node@v3
+        with:
+          node-version: '20'
+      
+      - name: Install dependencies
+        run: |
+          cd frontend
+          npm install
+      
+      - name: Run ESLint
+        run: |
+          cd frontend
+          npm run lint
+      
+      - name: Build frontend
+        run: |
+          cd frontend
+          npm run build
+
+  test-summary:
+    needs: [glue-tests, api-tests, frontend-tests]
+    runs-on: ubuntu-latest
+    if: always()
+    steps:
+      - name: Test Results Summary
+        run: |
+          echo "## Manual Test Run Summary" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "**Suite**: ${{ github.event.inputs.test_suite }}" >> $GITHUB_STEP_SUMMARY
+          echo "**Glue Tests**: ${{ needs.glue-tests.result }}" >> $GITHUB_STEP_SUMMARY
+          echo "**API Tests**: ${{ needs.api-tests.result }}" >> $GITHUB_STEP_SUMMARY
+          echo "**Frontend Tests**: ${{ needs.frontend-tests.result }}" >> $GITHUB_STEP_SUMMARY
