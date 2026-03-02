@@ -8,6 +8,8 @@ import os
 os.environ["JOBS_TABLE_NAME"] = "test-jobs-table"
 
 import pytest
+import csv
+csv.field_size_limit(int(1e7))  # 10MB limit for large JSON fields
 import json
 from unittest.mock import Mock, patch, MagicMock
 from process import (

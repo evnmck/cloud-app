@@ -208,6 +208,9 @@ def handler(event, context):
     print(f"Processing s3://{bucket}/{key}")
     
     try:
+        # Increase CSV field size limit for large JSON fields
+        csv.field_size_limit(int(1e7))  # 10MB limit
+        
         # Read CSV from S3
         obj = s3_client.get_object(Bucket=bucket, Key=key)
         csv_content = obj['Body'].read().decode('utf-8')
