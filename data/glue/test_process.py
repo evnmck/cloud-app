@@ -8,8 +8,6 @@ import os
 os.environ["JOBS_TABLE_NAME"] = "test-jobs-table"
 
 import pytest
-import csv
-csv.field_size_limit(int(1e7))  # 10MB limit for large JSON fields
 import json
 from unittest.mock import Mock, patch, MagicMock
 from process import (
@@ -323,7 +321,7 @@ class TestHandler:
     @patch('process.dynamodb')
     @patch('process.s3_client')
     def test_handler_s3_error(self, mock_s3, mock_dynamodb):
-        """Test handler with S3 error"""
+        """Test handler with S3 error - should raise exception"""
         mock_s3.get_object.side_effect = Exception('S3 error')
         
         # Setup mock DynamoDB
@@ -338,10 +336,9 @@ class TestHandler:
         context = Mock()
         context.invoked_function_arn = 'arn:aws:lambda:us-east-1:123456789012:function:test'
         
-        result = handler(event, context)
-        
-        assert result['statusCode'] == 500
-        assert 'error' in json.loads(result['body'])
+        # Should raise exception, not return error response
+        with pytest.raises(Exception, match='S3 error'):
+            handler(event, context)
 
     @patch('process.dynamodb')
     @patch('process.s3_client')

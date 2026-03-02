@@ -5,10 +5,9 @@ Extracts game summary, weather, player performance, and pitch-level details
 """
 
 import json
-import csv
 import sys
 import boto3
-from io import StringIO
+import pandas as pd
 from datetime import datetime, timezone
 import os
 
@@ -128,19 +127,32 @@ def extract_player_stats(game_data):
 def process_game(raw_game_json, game_id, date):
     """Process a single game's data"""
     try:
-        game_data = json.loads(raw_game_json)
-    except json.JSONDecodeError:
-        print(f"Failed to parse JSON for game {game_id}")
+        if isinstance(raw_game_json, str):
+            game_data = json.loads(raw_game_json)
+        else:
+            game_data = raw_game_json
+            
+        # Ensure we got a dict
+        if not isinstance(game_data, dict):
+            print(f"Warning: game_data is {type(game_data)} for game {game_id}, skipping")
+            return None
+            
+    except json.JSONDecodeError as e:
+        print(f"Failed to parse JSON for game {game_id}: {str(e)}")
         return None
     
-    return {
-        'game_id': game_id,
-        'date': date,
-        'summary': extract_game_summary(game_data),
-        'weather': extract_weather(game_data),
-        'plays': extract_plays(game_data),
-        'player_stats': extract_player_stats(game_data),
-    }
+    try:
+        return {
+            'game_id': game_id,
+            'date': date,
+            'summary': extract_game_summary(game_data),
+            'weather': extract_weather(game_data),
+            'plays': extract_plays(game_data),
+            'player_stats': extract_player_stats(game_data),
+        }
+    except Exception as e:
+        print(f"Error extracting data for game {game_id}: {str(e)}")
+        raise
 
 
 def update_job_repository(job_id: str, status: str, **extra_fields):
@@ -200,31 +212,28 @@ def handler(event, context):
     if not job_id or not bucket or not key:
         error_msg = f"Missing required parameters: jobId={job_id}, bucket={bucket}, key={key}"
         print(f"Error: {error_msg}")
-        return {
-            'statusCode': 400,
-            'body': json.dumps({'error': error_msg})
-        }
+        raise ValueError(error_msg)
     
     print(f"Processing s3://{bucket}/{key}")
     
     try:
-        # Increase CSV field size limit for large JSON fields
-        csv.field_size_limit(int(1e7))  # 10MB limit
-        
-        # Read CSV from S3
+        # Read CSV from S3 using pandas (handles large fields automatically)
         obj = s3_client.get_object(Bucket=bucket, Key=key)
         csv_content = obj['Body'].read().decode('utf-8')
         
-        reader = csv.DictReader(StringIO(csv_content))
+        # Read CSV with pandas
+        df = pd.read_csv(pd.io.common.StringIO(csv_content))
         
         processed_games = []
         
-        for row in reader:
+        for _, row in df.iterrows():
             game_id = row.get('gameId')
             date = row.get('date')
             raw_data = row.get('rawData')
             
-            if raw_data:
+            print(f"Processing game {game_id}, rawData type: {type(raw_data)}, length: {len(str(raw_data)) if raw_data else 0}")
+            
+            if pd.notna(raw_data):  # Check if not NaN
                 processed = process_game(raw_data, game_id, date)
                 if processed:
                     processed_games.append(processed)
@@ -258,10 +267,10 @@ def handler(event, context):
         
     except Exception as e:
         print(f"Error processing file: {str(e)}")
-        return {
-            'statusCode': 500,
-            'body': json.dumps({'error': str(e)})
-        }
+        import traceback
+        traceback.print_exc()
+        # Raise the exception to make the Glue job fail
+        raise
 
 
 # Glue job entry point - invoke handler when script runs
