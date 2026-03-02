@@ -348,43 +348,51 @@ jobs:
 
 **Test Results**: All tests must pass before merging to `main`. PR shows ✅ or ❌ status.
 
-### Branch Protection Rules
+### Branch Protection & Merge Requirements
 
-Prevent merging to `main` until all tests pass. This ensures code quality and prevents broken deployments.
+Enforce code quality by requiring pull requests, passing tests, and successful dev deployment before merging to `main`.
 
-**How to Enable**:
+**Setup (GitHub Rulesets)**:
 
-1. Go to repo → **Settings** → **Branches**
-2. Click **Add rule** under "Branch protection rules"
-3. Pattern: `main`
-4. Enable these checks:
-   - ✅ **Require a pull request before merging**
-     - Require approvals: `1`
-   - ✅ **Require status checks to pass before merging**
-     - Require branches to be up to date before merging
-     - Status checks required:
-       - `glue-tests` (from test.yml)
-       - `api-tests` (from test.yml)
-       - `frontend-lint` (from test.yml)
-   - ✅ **Require code reviews**
-     - Dismiss stale pull request approvals
-   - ✅ **Restrict who can push to matching branches** (optional, for prod safety)
+1. Go to repo → **Settings** → **Rules** → **Rulesets**
+2. Click **New ruleset** → **New branch ruleset**
+3. **Name**: `Main Branch Protection`
+4. **Target branches**: `main`
+5. **Enforcement status**: `Active`
+6. **Enable these rules**:
 
-**Result**: PR cannot merge until:
-1. ✅ All three test suites pass
-2. ✅ At least 1 approval from team member
-3. ✅ Branch is up to date with main
+| Rule | Purpose |
+|------|---------|
+| **Require pull request** | Code must go through PR (no direct commits) |
+| **Require branches to be up to date** | Always test against latest main |
+| **Require status checks to pass** | All 3 test suites must pass |
+| **Require dev deploy to pass** | Infrastructure validates on deploy-dev |
 
-**Visual in GitHub**:
+**Required Status Checks**:
+- `glue-tests` (data processing)
+- `api-tests` (backend Lambda)
+- `frontend-lint` (UI code quality)
+- `deploy-dev` (infrastructure CDK deploy)
+
+### Result: Merge Blocked Until
+
+✅ PR created (code review required)  
+✅ Branch is up to date with main  
+✅ All tests passing (glue, api, frontend)  
+✅ Dev deployment succeeds  
+
+**In Practice**:
 ```
-PR Status Checks:
-✅ glue-tests
-✅ api-tests
-✅ frontend-lint
-Reviewers: @teammate approved
+PR Status:
+✅ glue-tests — passed
+✅ api-tests — passed
+✅ frontend-lint — passed
+✅ deploy-dev — passed
 
-[Merge button] ← Now enabled only if all pass
+[Merge pull request] ← Only enabled when all pass
 ```
+
+This ensures no broken code reaches prod and infrastructure changes are validated on dev first.
 
 ### Manual Test Workflow (Run Anytime)
 
