@@ -53,17 +53,21 @@ def extract_weather(game_data):
 def extract_plays(game_data):
     """Extract play-by-play data with pitcher and batter info"""
     plays_list = game_data.get('liveData', {}).get('plays', {}).get('allPlays', [])
+    if not isinstance(plays_list, list):
+        return []
     
     processed_plays = []
     
     for play in plays_list:
-        matchup = play.get('matchup', {})
-        batter = matchup.get('batter', {})
-        pitcher = matchup.get('pitcher', {})
-        result = play.get('result', {})
-        about = play.get('about', {})
-        pitch_data = play.get('pitchData', {})
-        count = play.get('count', {})
+        if not isinstance(play, dict):
+            continue
+        matchup = play.get('matchup', {}) if isinstance(play.get('matchup'), dict) else {}
+        batter = matchup.get('batter', {}) if isinstance(matchup.get('batter'), dict) else {}
+        pitcher = matchup.get('pitcher', {}) if isinstance(matchup.get('pitcher'), dict) else {}
+        result = play.get('result', {}) if isinstance(play.get('result'), dict) else {}
+        about = play.get('about', {}) if isinstance(play.get('about'), dict) else {}
+        pitch_data = play.get('pitchData', {}) if isinstance(play.get('pitchData'), dict) else {}
+        count = play.get('count', {}) if isinstance(play.get('count'), dict) else {}
         
         processed_plays.append({
             'inning': about.get('inning'),
@@ -92,17 +96,23 @@ def extract_plays(game_data):
 def extract_player_stats(game_data):
     """Extract individual player stats from boxscore"""
     boxscore = game_data.get('liveData', {}).get('boxscore', {})
+    if not isinstance(boxscore, dict):
+        return []
     
     player_stats = []
     
     for team_side in ['home', 'away']:
-        team = boxscore.get('teams', {}).get(team_side, {})
+        team = boxscore.get('teams', {}) if isinstance(boxscore.get('teams'), dict) else {}
+        team = team.get(team_side, {}) if isinstance(team.get(team_side), dict) else {}
         team_name = game_data.get('gameData', {}).get('teams', {}).get(team_side, {}).get('name', '')
         
-        for player_id, player_data in team.get('players', {}).items():
-            person = player_data.get('person', {})
-            stats = player_data.get('stats', {}).get('batting', {})
-            position = player_data.get('position', {})
+        for player_id, player_data in team.get('players', {}).items() if isinstance(team.get('players'), dict) else []:
+            if not isinstance(player_data, dict):
+                continue
+            person = player_data.get('person', {}) if isinstance(player_data.get('person'), dict) else {}
+            stats = player_data.get('stats', {}) if isinstance(player_data.get('stats'), dict) else {}
+            stats = stats.get('batting', {}) if isinstance(stats.get('batting'), dict) else {}
+            position = player_data.get('position', {}) if isinstance(player_data.get('position'), dict) else {}
             
             player_stats.append({
                 'team': team_name,
