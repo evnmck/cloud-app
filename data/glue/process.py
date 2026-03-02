@@ -6,6 +6,7 @@ Extracts game summary, weather, player performance, and pitch-level details
 
 import json
 import sys
+from io import StringIO
 import boto3
 import pandas as pd
 from datetime import datetime, timezone
@@ -311,7 +312,7 @@ def handler(event, context):
         csv_content = obj['Body'].read().decode('utf-8')
         
         # Read CSV with pandas
-        df = pd.read_csv(pd.io.common.StringIO(csv_content))
+        df = pd.read_csv(StringIO(csv_content))
         
         processed_games = []
         
