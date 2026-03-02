@@ -52,7 +52,7 @@ def update_job(event):
     """
     path_params = event.get("pathParameters") or {}
     job_id = path_params.get("jobId")
-    new_status = event.get("queryStringParameters", {}).get("status")
+    new_status = (event.get("queryStringParameters") or {}).get("status")
     
     if not job_id:
         return _response(400, {"message": "Missing jobId in path"})
