@@ -207,8 +207,8 @@ def process_game(raw_game_json, game_id, date):
                         try:
                             obj[k] = json.loads(v)
                             parse_nested(obj[k])
-                        except:
-                            pass
+                        except (json.JSONDecodeError, TypeError) as e:
+                            print(f"Warning: failed to parse nested JSON for key '{k}' in game {game_id}: {e}")
                     elif isinstance(v, dict) or isinstance(v, list):
                         parse_nested(v)
             elif isinstance(obj, list):
