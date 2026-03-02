@@ -251,7 +251,7 @@ class TestExtractPlayerStats:
         assert judge_stats['position'] == 'RF'
         assert judge_stats['home_runs'] == 1
         assert judge_stats['rbi'] == 2
-        assert judge_stats['batting_average'] == '.500'
+        assert judge_stats['batting_average'] == '0.500'
 
     def test_extract_player_stats_no_players(self):
         """Test with no players"""

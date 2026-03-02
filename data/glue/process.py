@@ -17,42 +17,61 @@ dynamodb = boto3.resource("dynamodb")
 
 def extract_game_summary(game_data):
     """Extract high-level game information"""
-    live_data = game_data.get('liveData', {})
-    game_data_obj = game_data.get('gameData', {})
-    boxscore = live_data.get('boxscore', {})
+    live_data = game_data.get('liveData', {}) if isinstance(game_data.get('liveData'), dict) else {}
+    game_data_obj = game_data.get('gameData', {}) if isinstance(game_data.get('gameData'), dict) else {}
+    boxscore = live_data.get('boxscore', {}) if isinstance(live_data.get('boxscore'), dict) else {}
     
-    teams = game_data_obj.get('teams', {})
-    home_team = teams.get('home', {})
-    away_team = teams.get('away', {})
+    teams = game_data_obj.get('teams', {}) if isinstance(game_data_obj.get('teams'), dict) else {}
+    home_team = teams.get('home', {}) if isinstance(teams.get('home'), dict) else {}
+    away_team = teams.get('away', {}) if isinstance(teams.get('away'), dict) else {}
     
-    home_stats = boxscore.get('teams', {}).get('home', {}).get('teamStats', {}).get('batting', {})
-    away_stats = boxscore.get('teams', {}).get('away', {}).get('teamStats', {}).get('batting', {})
+    box_teams = boxscore.get('teams', {}) if isinstance(boxscore.get('teams'), dict) else {}
+    home_box = box_teams.get('home', {}) if isinstance(box_teams.get('home'), dict) else {}
+    away_box = box_teams.get('away', {}) if isinstance(box_teams.get('away'), dict) else {}
+    home_team_stats = home_box.get('teamStats', {}) if isinstance(home_box.get('teamStats'), dict) else {}
+    away_team_stats = away_box.get('teamStats', {}) if isinstance(away_box.get('teamStats'), dict) else {}
+    home_stats = home_team_stats.get('batting', {}) if isinstance(home_team_stats.get('batting'), dict) else {}
+    away_stats = away_team_stats.get('batting', {}) if isinstance(away_team_stats.get('batting'), dict) else {}
+    
+    home_score = home_stats.get('runs', 0)
+    away_score = away_stats.get('runs', 0)
+    
+    venue = game_data_obj.get('venue', {}) if isinstance(game_data_obj.get('venue'), dict) else {}
     
     return {
         'home_team': home_team.get('name'),
         'away_team': away_team.get('name'),
-        'home_score': home_stats.get('runs', 0),
-        'away_score': away_stats.get('runs', 0),
-        'winner': home_team.get('name') if home_stats.get('runs', 0) > away_stats.get('runs', 0) else away_team.get('name'),
+        'home_score': home_score,
+        'away_score': away_score,
+        'winner': home_team.get('name') if home_score > away_score else away_team.get('name'),
         'game_date': game_data_obj.get('dateTime', ''),
-        'venue': game_data_obj.get('venue', {}).get('name', ''),
+        'venue': venue.get('name', ''),
     }
 
 
 def extract_weather(game_data):
     """Extract weather information"""
-    weather = game_data.get('gameData', {}).get('weather', {})
+    game_data_obj = game_data.get('gameData', {}) if isinstance(game_data.get('gameData'), dict) else {}
+    weather = game_data_obj.get('weather', {}) if isinstance(game_data_obj.get('weather'), dict) else {}
+    wind = weather.get('wind', {}) if isinstance(weather.get('wind'), dict) else {}
+    
     return {
         'temp': weather.get('temp'),
         'condition': weather.get('condition'),
-        'wind_speed': weather.get('wind', {}).get('speed'),
-        'wind_direction': weather.get('wind', {}).get('direction'),
+        'wind_speed': wind.get('speed'),
+        'wind_direction': wind.get('direction'),
     }
 
 
 def extract_plays(game_data):
     """Extract play-by-play data with pitcher and batter info"""
-    plays_list = game_data.get('liveData', {}).get('plays', {}).get('allPlays', [])
+    live_data = game_data.get('liveData') or {}
+    if not isinstance(live_data, dict):
+        return []
+    plays_dict = live_data.get('plays') or {}
+    if not isinstance(plays_dict, dict):
+        return []
+    plays_list = plays_dict.get('allPlays', [])
     if not isinstance(plays_list, list):
         return []
     
@@ -104,9 +123,19 @@ def extract_player_stats(game_data):
     for team_side in ['home', 'away']:
         team = boxscore.get('teams', {}) if isinstance(boxscore.get('teams'), dict) else {}
         team = team.get(team_side, {}) if isinstance(team.get(team_side), dict) else {}
-        team_name = game_data.get('gameData', {}).get('teams', {}).get(team_side, {}).get('name', '')
         
-        for player_id, player_data in team.get('players', {}).items() if isinstance(team.get('players'), dict) else []:
+        game_data_obj_inner = game_data.get('gameData') or {}
+        if isinstance(game_data_obj_inner, dict):
+            teams_inner = game_data_obj_inner.get('teams') or {}
+            team_side_obj = teams_inner.get(team_side) or {} if isinstance(teams_inner, dict) else {}
+            team_name = team_side_obj.get('name', '') if isinstance(team_side_obj, dict) else ''
+        else:
+            team_name = ''
+        
+        players_dict = team.get('players') or {}
+        players_items = players_dict.items() if isinstance(players_dict, dict) else []
+        
+        for player_id, player_data in players_items:
             if not isinstance(player_data, dict):
                 continue
             person = player_data.get('person', {}) if isinstance(player_data.get('person'), dict) else {}
@@ -114,21 +143,44 @@ def extract_player_stats(game_data):
             stats = stats.get('batting', {}) if isinstance(stats.get('batting'), dict) else {}
             position = player_data.get('position', {}) if isinstance(player_data.get('position'), dict) else {}
             
+            # Extract raw stats
+            at_bats = stats.get('atBats', 0)
+            hits = stats.get('hits', 0)
+            walks = stats.get('baseOnBalls', 0)
+            home_runs = stats.get('homeRuns', 0)
+            doubles = stats.get('doubles', 0)
+            triples = stats.get('triples', 0)
+            
+            # Skip players with no activity
+            if at_bats == 0 and hits == 0 and walks == 0:
+                continue
+            
+            # Calculate batting average (hits / at_bats)
+            batting_avg = f"{hits / at_bats:.3f}" if at_bats > 0 else "0.000"
+            
+            # Calculate on-base percentage: (H + BB) / (AB + BB + SF)
+            # Assuming no SF (sacrifice flies) in data, simplified to (H + BB) / (AB + BB)
+            obp = f"{(hits + walks) / (at_bats + walks):.3f}" if (at_bats + walks) > 0 else "0.000"
+            
+            # Calculate slugging percentage: total bases / at_bats
+            total_bases = hits - doubles - triples - home_runs + (2 * doubles) + (3 * triples) + (4 * home_runs)
+            slg = f"{total_bases / at_bats:.3f}" if at_bats > 0 else "0.000"
+            
             player_stats.append({
                 'team': team_name,
                 'player_id': person.get('id'),
                 'player_name': person.get('fullName'),
                 'position': position.get('abbreviation'),
-                'at_bats': stats.get('atBats', 0),
-                'hits': stats.get('hits', 0),
+                'at_bats': at_bats,
+                'hits': hits,
                 'runs': stats.get('runs', 0),
-                'home_runs': stats.get('homeRuns', 0),
+                'home_runs': home_runs,
                 'rbi': stats.get('rbi', 0),
                 'strikeouts': stats.get('strikeOuts', 0),
-                'walks': stats.get('baseOnBalls', 0),
-                'batting_average': stats.get('avg'),
-                'on_base_percentage': stats.get('obp'),
-                'slugging_percentage': stats.get('slg'),
+                'walks': walks,
+                'batting_average': batting_avg,
+                'on_base_percentage': obp,
+                'slugging_percentage': slg,
             })
     
     return player_stats
@@ -222,6 +274,10 @@ def handler(event, context):
     job_id = event.get('jobId')
     bucket = event.get('bucket')
     key = event.get('key')
+    
+    # Set JOBS_TABLE_NAME from event if not already in environment
+    if 'JOBS_TABLE_NAME' in event and 'JOBS_TABLE_NAME' not in os.environ:
+        os.environ['JOBS_TABLE_NAME'] = event['JOBS_TABLE_NAME']
     
     print(f"From event - jobId: {job_id}, bucket: {bucket}, key: {key}")
     
