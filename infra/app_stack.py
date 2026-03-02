@@ -131,6 +131,13 @@ class AppStack(Stack):
             apigw.LambdaIntegration(api_lambda),
         )
 
+        # /jobs/{jobId}/status -> PUT
+        status_res = job_id_res.add_resource("status")
+        status_res.add_method(
+            "PUT",
+            apigw.LambdaIntegration(api_lambda),
+        )
+
         # (Optional) /health -> GET
         health_res = api.root.add_resource("health")
         health_res.add_method(
@@ -138,13 +145,13 @@ class AppStack(Stack):
             apigw.LambdaIntegration(api_lambda),
         )
 
-        #---------- Update Lambda for Pipeline -------------
-        upload_handler = _lambda.Function(
+        #---------- Lambda A: S3 trigger -> Start Step Function ----------
+        upload_trigger = _lambda.Function(
             self,
-            "UploadEventHandler",
-            function_name=f"evnmck-baseball-{stage}-upload-handler",
+            "UploadTrigger",
+            function_name=f"evnmck-baseball-{stage}-upload-trigger",
             runtime=_lambda.Runtime.PYTHON_3_11,
-            handler="upload_handler.handler",
+            handler="upload_trigger.handler",
             code=_lambda.Code.from_asset("../backend/pipeline"),
             layers=[shared_layer],
             environment={
@@ -152,15 +159,31 @@ class AppStack(Stack):
             },
         )
 
-        jobs_table.grant_read_write_data(upload_handler)
+        jobs_table.grant_read_write_data(upload_trigger)
 
-        upload_handler.add_event_source(
+        upload_trigger.add_event_source(
             lambda_events.S3EventSource(
                 upload_bucket,
                 events=[s3.EventType.OBJECT_CREATED_PUT],
                 filters=[s3.NotificationKeyFilter(prefix="uploads/")],
             )
         )
+
+        #---------- Lambda B: Error handler for Step Function ----------
+        error_handler = _lambda.Function(
+            self,
+            "ErrorHandler",
+            function_name=f"evnmck-baseball-{stage}-error-handler",
+            runtime=_lambda.Runtime.PYTHON_3_11,
+            handler="error_handler.handler",
+            code=_lambda.Code.from_asset("../backend/pipeline"),
+            layers=[shared_layer],
+            environment={
+                "JOBS_TABLE_NAME": jobs_table.table_name,
+            },
+        )
+
+        jobs_table.grant_read_write_data(error_handler)
 
         # ---------- IAM role for Glue job ----------
         glue_role = iam.Role(
@@ -188,6 +211,21 @@ class AppStack(Stack):
         glue_script_asset.grant_read(glue_role)
 
         # ---------- Glue job ----------
+        glue_default_args = {
+            "--TempDir": f"s3://{upload_bucket.bucket_name}/temp/",
+            "--job-bookmark-option": "job-bookmark-enable",
+            "--additional-python-modules": "pandas==2.2.0",
+            "--JOBS_TABLE_NAME": jobs_table.table_name,
+        }
+        
+        # Dev only: add test defaults for manual testing
+        if stage == "dev":
+            glue_default_args.update({
+                "--jobId": "test_id",
+                "--bucket": upload_bucket.bucket_name,
+                "--key": "tests_data/test_id/yankees_games_test.csv",
+            })
+        
         glue_job = glue.CfnJob(
             self, "DataProcessingJob",
             name=f"evnmck-baseball-{stage}-processing",
@@ -197,23 +235,8 @@ class AppStack(Stack):
                 python_version="3.9",
                 script_location=glue_script_asset.s3_object_url,
             ),
-            default_arguments={
-                "--TempDir": f"s3://{upload_bucket.bucket_name}/temp/",
-                "--job-bookmark-option": "job-bookmark-enable",
-                "--JOBS_TABLE_NAME": jobs_table.table_name,
-            },
+            default_arguments=glue_default_args,
         )
-
-        # ---------- Lambda permissions to trigger Glue ----------
-        upload_handler.add_to_role_policy(
-            iam.PolicyStatement(
-                actions=["glue:StartJobRun"],
-                resources=[f"arn:aws:glue:*:*:job/{glue_job.name}"],
-            )
-        )
-
-        # Pass Glue job name to Lambda
-        upload_handler.add_environment("GLUE_JOB_NAME", glue_job.name)
 
         # ---------- Step Function: Glue job orchestration ----------
         # Start Glue job
@@ -229,42 +252,55 @@ class AppStack(Stack):
             }),
         )
 
-        # Handle failure - invoke Lambda to update job status
+        # Handle failure - invoke error handler Lambda
         handle_failure = sfn_tasks.LambdaInvoke(
             self,
             "HandleJobFailure",
-            lambda_function=upload_handler,
+            lambda_function=error_handler,
             payload=sfn.TaskInput.from_object({
                 "jobId.$": "$.jobId",
-                "error.$": "$.Error",
-                "cause.$": "$.Cause",
+                "error.$": "$.error.Error",
+                "cause.$": "$.error.Cause",
             }),
+        )
+
+        # Fail state for job failures (ensures execution reflects failure)
+        job_failed = sfn.Fail(
+            self,
+            "JobFailed",
+            error="GlueJobFailed",
+            cause="The Glue job execution failed and was handled"
         )
 
         # Success state
         job_succeeded = sfn.Pass(self, "JobSucceeded")
 
         # Define workflow with error handling
+        # On Glue failure → error handler → fail state
         start_glue_job.add_catch(
             handler=handle_failure,
             errors=["States.ALL"],
-            result_path="$"
+            result_path="$.error"
         )
         
+        # Error handler transitions to failure state
+        handle_failure.next(job_failed)
+        
+        # Success path
         definition = start_glue_job.next(job_succeeded)
 
         # Create state machine
         state_machine = sfn.StateMachine(
             self,
             "GlueJobOrchestration",
-            definition=definition,
+            definition_body=sfn.DefinitionBody.from_chainable(definition),
             timeout=Duration.minutes(15),
             state_machine_name=f"evnmck-baseball-{stage}-glue-orchestration",
         )
 
-        # Grant upload handler permission to trigger state machine
-        state_machine.grant_start_execution(upload_handler)
+        # Grant upload trigger permission to trigger state machine
+        state_machine.grant_start_execution(upload_trigger)
         
-        # Pass state machine ARN to upload handler
-        upload_handler.add_environment("STATE_MACHINE_ARN", state_machine.state_machine_arn)
+        # Pass state machine ARN to trigger
+        upload_trigger.add_environment("STATE_MACHINE_ARN", state_machine.state_machine_arn)
 

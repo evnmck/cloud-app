@@ -18,8 +18,8 @@ FIELD_VALIDATORS = {
     },
     'error': {
         'max_length': 1000,
-        'pattern': r'^[\w\s\-\.,:;()]+$',  # Alphanumeric + basic punctuation
-        'description': 'Can only contain letters, numbers, spaces, and basic punctuation'
+        'pattern': r'^[\s\S]+$',  # Allow any characters, including JSON and newlines
+        'description': 'Must be a valid string'
     }
 }
 

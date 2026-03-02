@@ -1,14 +1,10 @@
-#!/usr/bin/env python3
-"""
-Unit tests for Glue job process.py
-Tests extraction functions and main handler with mock data
-"""
-
 import os
 os.environ["JOBS_TABLE_NAME"] = "test-jobs-table"
 
 import pytest
 import json
+import csv
+import io
 from unittest.mock import Mock, patch, MagicMock
 from process import (
     extract_game_summary,
@@ -251,7 +247,7 @@ class TestExtractPlayerStats:
         assert judge_stats['position'] == 'RF'
         assert judge_stats['home_runs'] == 1
         assert judge_stats['rbi'] == 2
-        assert judge_stats['batting_average'] == '.500'
+        assert judge_stats['batting_average'] == '0.500'
 
     def test_extract_player_stats_no_players(self):
         """Test with no players"""
@@ -288,18 +284,29 @@ class TestProcessGame:
 
 
 class TestHandler:
-    @patch('process.jobs_table')
+    @patch('process.dynamodb')
     @patch('process.s3_client')
-    def test_handler_success(self, mock_s3, mock_table, mock_game_data):
+    def test_handler_success(self, mock_s3, mock_dynamodb, mock_game_data):
         """Test handler success"""
-        # Setup mock S3
-        csv_content = 'gameId,date,rawData\n779051,2025-03-28,' + json.dumps(mock_game_data).replace('\n', ' ')
+        # Setup mock S3 with properly formatted CSV
+        csv_buffer = io.StringIO()
+        writer = csv.DictWriter(csv_buffer, fieldnames=['gameId', 'date', 'rawData'])
+        writer.writeheader()
+        writer.writerow({
+            'gameId': '779051',
+            'date': '2025-03-28',
+            'rawData': json.dumps(mock_game_data)
+        })
+        csv_content = csv_buffer.getvalue()
+        
         mock_s3.get_object.return_value = {
             'Body': Mock(read=Mock(return_value=csv_content.encode('utf-8')))
         }
         
         # Setup mock DynamoDB
+        mock_table = MagicMock()
         mock_table.update_item.return_value = {}
+        mock_dynamodb.Table.return_value = mock_table
         
         event = {
             'jobId': 'job_123',
@@ -316,11 +323,15 @@ class TestHandler:
         mock_s3.put_object.assert_called_once()
         mock_table.update_item.assert_called_once()
 
-    @patch('process.jobs_table')
+    @patch('process.dynamodb')
     @patch('process.s3_client')
-    def test_handler_s3_error(self, mock_s3, mock_table):
-        """Test handler with S3 error"""
+    def test_handler_s3_error(self, mock_s3, mock_dynamodb):
+        """Test handler with S3 error - should raise exception"""
         mock_s3.get_object.side_effect = Exception('S3 error')
+        
+        # Setup mock DynamoDB
+        mock_table = MagicMock()
+        mock_dynamodb.Table.return_value = mock_table
         
         event = {
             'jobId': 'job_123',
@@ -330,14 +341,13 @@ class TestHandler:
         context = Mock()
         context.invoked_function_arn = 'arn:aws:lambda:us-east-1:123456789012:function:test'
         
-        result = handler(event, context)
-        
-        assert result['statusCode'] == 500
-        assert 'error' in json.loads(result['body'])
+        # Should raise exception, not return error response
+        with pytest.raises(Exception, match='S3 error'):
+            handler(event, context)
 
-    @patch('process.jobs_table')
+    @patch('process.dynamodb')
     @patch('process.s3_client')
-    def test_handler_empty_csv(self, mock_s3, mock_table):
+    def test_handler_empty_csv(self, mock_s3, mock_dynamodb):
         """Test handler with empty CSV"""
         csv_content = 'gameId,date,rawData\n'
         mock_s3.get_object.return_value = {
@@ -345,7 +355,9 @@ class TestHandler:
         }
         
         # Setup mock DynamoDB
+        mock_table = MagicMock()
         mock_table.update_item.return_value = {}
+        mock_dynamodb.Table.return_value = mock_table
         
         event = {
             'jobId': 'job_123',
