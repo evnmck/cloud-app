@@ -217,6 +217,9 @@ class AppStack(Stack):
                 "--TempDir": f"s3://{upload_bucket.bucket_name}/temp/",
                 "--job-bookmark-option": "job-bookmark-enable",
                 "--JOBS_TABLE_NAME": jobs_table.table_name,
+                "--jobId": "test_id",
+                "--bucket": upload_bucket.bucket_name,
+                "--key": "tests_data/test_id/yankees_games_test.csv",
             },
         )
 
