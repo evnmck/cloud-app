@@ -220,9 +220,6 @@ class AppStack(Stack):
             },
         )
 
-        # Pass state machine ARN to trigger
-        upload_trigger.add_environment("STATE_MACHINE_ARN", state_machine.state_machine_arn)
-
         # ---------- Step Function: Glue job orchestration ----------
         # Start Glue job
         start_glue_job = sfn_tasks.GlueStartJobRun(
@@ -272,4 +269,7 @@ class AppStack(Stack):
 
         # Grant upload trigger permission to trigger state machine
         state_machine.grant_start_execution(upload_trigger)
+        
+        # Pass state machine ARN to trigger
+        upload_trigger.add_environment("STATE_MACHINE_ARN", state_machine.state_machine_arn)
 
