@@ -2,6 +2,8 @@ name: Deploy CDK Stacks
 
 on:
   workflow_dispatch:  
+  pull_request:
+    branches: [ main ]
 
   # Deploy prod when changes are pushed/merged to main
   push:
@@ -15,7 +17,7 @@ jobs:
 
   deploy-dev:
     needs: test
-    if: github.event_name == 'workflow_dispatch'
+    if: github.event_name == 'pull_request' || github.event_name == 'workflow_dispatch'
     runs-on: ubuntu-latest
     permissions:
       contents: read

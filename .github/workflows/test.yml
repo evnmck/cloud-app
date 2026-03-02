@@ -1,7 +1,6 @@
 name: Unit Tests
 
 on:
-  pull_request:
   workflow_call:
 
 permissions:
@@ -36,6 +35,33 @@ jobs:
           UPLOAD_BUCKET_NAME: test-upload-bucket
           API_TOKEN: test-token
           STAGE: test
+          AWS_DEFAULT_REGION: us-east-1
+          AWS_ACCESS_KEY_ID: test
+          AWS_SECRET_ACCESS_KEY: test
+
+  test-glue:
+    runs-on: ubuntu-latest
+
+    defaults:
+      run:
+        working-directory: data/glue
+
+    steps:
+      - name: Checkout repo
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+
+      - name: Install dependencies
+        run: pip install -r requirements.txt
+
+      - name: Run Glue unit tests
+        run: python -m pytest test_process.py -v
+        env:
+          JOBS_TABLE_NAME: test-jobs-table
           AWS_DEFAULT_REGION: us-east-1
           AWS_ACCESS_KEY_ID: test
           AWS_SECRET_ACCESS_KEY: test
