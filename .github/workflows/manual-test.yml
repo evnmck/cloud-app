@@ -35,6 +35,11 @@ jobs:
           pip install -r requirements.txt
       
       - name: Run Glue tests
+        env:
+          AWS_DEFAULT_REGION: us-east-1
+          AWS_ACCESS_KEY_ID: test
+          AWS_SECRET_ACCESS_KEY: test
+          JOBS_TABLE_NAME: test-jobs-table
         run: |
           cd data/glue
           pytest test_process.py -v --cov --cov-report=term-missing --cov-report=xml
