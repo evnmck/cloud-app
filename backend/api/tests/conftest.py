@@ -15,3 +15,9 @@ os.environ.setdefault("AWS_SECRET_ACCESS_KEY", "test")
 
 # Add the api directory to the path so tests can import application modules
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), ".."))
+
+# Add the shared layer to path for imports like "from shared_services import ..."
+shared_layer_path = os.path.join(os.path.dirname(__file__), "../../../backend/layers/shared/python")
+if os.path.exists(shared_layer_path):
+    sys.path.insert(0, shared_layer_path)
+
