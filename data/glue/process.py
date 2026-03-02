@@ -169,12 +169,32 @@ def update_job_repository(job_id: str, status: str, **extra_fields):
 def handler(event, context):
     """AWS Glue job handler"""
     print(f"Event: {event}")
+    print(f"sys.argv full: {sys.argv}")
+    print(f"Number of args: {len(sys.argv)}")
     
     # Get job parameters from Glue job arguments
     # These are passed by Step Function in the RUN_JOB integration
-    job_id = event.get('jobId') or sys.argv[sys.argv.index('--jobId') + 1] if '--jobId' in sys.argv else None
-    bucket = event.get('bucket') or sys.argv[sys.argv.index('--bucket') + 1] if '--bucket' in sys.argv else None
-    key = event.get('key') or sys.argv[sys.argv.index('--key') + 1] if '--key' in sys.argv else None
+    job_id = event.get('jobId')
+    bucket = event.get('bucket')
+    key = event.get('key')
+    
+    print(f"From event - jobId: {job_id}, bucket: {bucket}, key: {key}")
+    
+    # Try parsing from sys.argv as fallback
+    if not job_id and '--jobId' in sys.argv:
+        idx = sys.argv.index('--jobId')
+        if idx + 1 < len(sys.argv):
+            job_id = sys.argv[idx + 1]
+    if not bucket and '--bucket' in sys.argv:
+        idx = sys.argv.index('--bucket')
+        if idx + 1 < len(sys.argv):
+            bucket = sys.argv[idx + 1]
+    if not key and '--key' in sys.argv:
+        idx = sys.argv.index('--key')
+        if idx + 1 < len(sys.argv):
+            key = sys.argv[idx + 1]
+    
+    print(f"Final extracted - jobId: {job_id}, bucket: {bucket}, key: {key}")
     
     print(f"Processing s3://{bucket}/{key}")
     
