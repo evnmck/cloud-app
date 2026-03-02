@@ -11,6 +11,8 @@ from aws_cdk import (
     aws_glue as glue,
     aws_iam as iam,
     aws_s3_assets as s3_assets,
+    aws_stepfunctions as sfn,
+    aws_stepfunctions_tasks as sfn_tasks,
 )
 import os
 from constructs import Construct
@@ -212,4 +214,55 @@ class AppStack(Stack):
 
         # Pass Glue job name to Lambda
         upload_handler.add_environment("GLUE_JOB_NAME", glue_job.name)
+
+        # ---------- Step Function: Glue job orchestration ----------
+        # Start Glue job
+        start_glue_job = sfn_tasks.GlueStartJobRun(
+            self,
+            "StartGlueJob",
+            glue_job_name=glue_job.name,
+            integration_pattern=sfn.IntegrationPattern.RUN_JOB,
+            arguments=sfn.TaskInput.from_object({
+                "--jobId.$": "$.jobId",
+                "--bucket.$": "$.bucket",
+                "--key.$": "$.key",
+            }),
+        )
+
+        # Handle failure - invoke Lambda to update job status
+        handle_failure = sfn_tasks.LambdaInvoke(
+            self,
+            "HandleJobFailure",
+            lambda_function=upload_handler,
+            payload=sfn.TaskInput.from_object({
+                "jobId.$": "$.jobId",
+                "error.$": "$.Error",
+                "cause.$": "$.Cause",
+            }),
+        )
+
+        # Define workflow
+        definition = start_glue_job.next(sfn.Pass(self, "JobSucceeded"))
+        
+        # Add error handling
+        definition.add_catch(
+            handler=handle_failure,
+            errors=["States.ALL"],
+            result_path="$"
+        )
+
+        # Create state machine
+        state_machine = sfn.StateMachine(
+            self,
+            "GlueJobOrchestration",
+            definition=definition,
+            timeout=Duration.minutes(15),
+            state_machine_name=f"evnmck-baseball-{stage}-glue-orchestration",
+        )
+
+        # Grant upload handler permission to trigger state machine
+        state_machine.grant_start_execution(upload_handler)
+        
+        # Pass state machine ARN to upload handler
+        upload_handler.add_environment("STATE_MACHINE_ARN", state_machine.state_machine_arn)
 
