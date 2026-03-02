@@ -348,6 +348,44 @@ jobs:
 
 **Test Results**: All tests must pass before merging to `main`. PR shows ✅ or ❌ status.
 
+### Branch Protection Rules
+
+Prevent merging to `main` until all tests pass. This ensures code quality and prevents broken deployments.
+
+**How to Enable**:
+
+1. Go to repo → **Settings** → **Branches**
+2. Click **Add rule** under "Branch protection rules"
+3. Pattern: `main`
+4. Enable these checks:
+   - ✅ **Require a pull request before merging**
+     - Require approvals: `1`
+   - ✅ **Require status checks to pass before merging**
+     - Require branches to be up to date before merging
+     - Status checks required:
+       - `glue-tests` (from test.yml)
+       - `api-tests` (from test.yml)
+       - `frontend-lint` (from test.yml)
+   - ✅ **Require code reviews**
+     - Dismiss stale pull request approvals
+   - ✅ **Restrict who can push to matching branches** (optional, for prod safety)
+
+**Result**: PR cannot merge until:
+1. ✅ All three test suites pass
+2. ✅ At least 1 approval from team member
+3. ✅ Branch is up to date with main
+
+**Visual in GitHub**:
+```
+PR Status Checks:
+✅ glue-tests
+✅ api-tests
+✅ frontend-lint
+Reviewers: @teammate approved
+
+[Merge button] ← Now enabled only if all pass
+```
+
 ### Manual Test Workflow (Run Anytime)
 
 Run tests on-demand without committing code. Useful for testing fixes, validating dependencies, or re-running after environment changes.
