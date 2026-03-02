@@ -14,7 +14,6 @@ import os
 
 s3_client = boto3.client('s3')
 dynamodb = boto3.resource("dynamodb")
-jobs_table = dynamodb.Table(os.environ["JOBS_TABLE_NAME"])
 
 
 def extract_game_summary(game_data):
@@ -146,6 +145,8 @@ def process_game(raw_game_json, game_id, date):
 
 def update_job_repository(job_id: str, status: str, **extra_fields):
     """Update job record in DynamoDB"""
+    jobs_table = dynamodb.Table(os.environ["JOBS_TABLE_NAME"])
+    
     update_expr = 'SET #status = :status, updatedAt = :now'
     attr_names = {'#status': 'status'}
     attr_values = {
