@@ -433,7 +433,7 @@ jobs:
 ### Testing Environment
 
 Tests run in isolated GitHub Actions containers:
-- **Glue tests**: Python 3.9 (matches Glue runtime)
+- **Glue tests**: Python 3.11 (matches GitHub Actions CI workflow)
 - **API tests**: Python 3.11 (matches Lambda runtime)
 - **Frontend tests**: Node 20 (matches production)
 - **All tests**: moto for AWS service mocking (no real AWS calls)
