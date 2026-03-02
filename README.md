@@ -657,9 +657,9 @@ cd data/glue
 python -m pytest test_process.py -v
 ```
 
-- 16+ unit tests with moto for AWS service mocking
+- Unit tests using Python's `unittest.mock` for AWS interactions
 - Covers: data extraction, type checking, edge cases
-- All passing ✅
+- All currently passing ✅
 
 ### API Tests
 
