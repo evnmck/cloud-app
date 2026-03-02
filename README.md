@@ -380,54 +380,89 @@ Run tests on-demand without committing code. Useful for testing fixes, validatin
 name: Deploy CDK Stacks
 
 on:
+  workflow_dispatch:
+  pull_request:
+    branches: [ main ]
   push:
-    branches: [main]
-  workflow_dispatch:  # Manual trigger in GitHub Actions tab
+    branches: [ main ]
 
 jobs:
-  deploy:
+  test:
+    uses: ./.github/workflows/test.yml
+    permissions:
+      contents: read
+
+  deploy-dev:
+    needs: test
+    if: github.event_name == 'pull_request' || github.event_name == 'workflow_dispatch'
     runs-on: ubuntu-latest
-    strategy:
-      matrix:
-        stage: [dev, prod]
+    env:
+      ACCOUNT_ID: ${{ secrets.ACCOUNT_ID }}
+      REGION: ${{ secrets.AWS_REGION }}
+      API_TOKEN: ${{ secrets.API_TOKEN }}
     steps:
-      - uses: actions/checkout@v3
-      
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+      - name: Install CDK CLI
+        run: npm install -g aws-cdk
+      - name: Install Python dependencies for infra
+        working-directory: infra
+        run: |
+          python -m venv .venv
+          source .venv/bin/activate
+          pip install -r requirements.txt
       - name: Configure AWS credentials
-        uses: aws-actions/configure-aws-credentials@v1
+        uses: aws-actions/configure-aws-credentials@v4
         with:
           aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
           aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
           aws-region: ${{ secrets.AWS_REGION }}
-      
-      - name: Setup Python
-        uses: actions/setup-python@v4
+      - name: Deploy dev stack (MyApp-dev)
+        working-directory: infra
+        run: |
+          source .venv/bin/activate
+          cdk deploy MyApp-dev --require-approval never
+
+  deploy-prod:
+    needs: test
+    if: (github.event_name == 'push' && github.ref == 'refs/heads/main') || github.event_name == 'workflow_dispatch'
+    runs-on: ubuntu-latest
+    env:
+      ACCOUNT_ID: ${{ secrets.ACCOUNT_ID }}
+      REGION: ${{ secrets.AWS_REGION }}
+      API_TOKEN: ${{ secrets.API_TOKEN }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+      - uses: actions/setup-python@v5
         with:
           python-version: '3.11'
-      
-      - name: Install CDK dependencies
+      - name: Install CDK CLI
+        run: npm install -g aws-cdk
+      - name: Install Python dependencies for infra
+        working-directory: infra
         run: |
-          cd infra
+          python -m venv .venv
+          source .venv/bin/activate
           pip install -r requirements.txt
-      
-      - name: Set environment variables
+      - name: Configure AWS credentials
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
+          aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+          aws-region: ${{ secrets.AWS_REGION }}
+      - name: Deploy prod stack (MyApp-prod)
+        working-directory: infra
         run: |
-          echo "STAGE=${{ matrix.stage }}" >> $GITHUB_ENV
-          echo "API_TOKEN=${{ secrets[format('API_TOKEN_{0}', matrix.stage)] }}" >> $GITHUB_ENV
-      
-      - name: CDK Synth
-        run: cd infra && cdk synth
-      
-      - name: CDK Deploy
-        run: cd infra && cdk deploy MyApp-${{ matrix.stage }} --require-approval never
-      
-      - name: Verify Deployment
-        run: |
-          API_URL=$(aws cloudformation describe-stacks \
-            --stack-name MyApp-${{ matrix.stage }} \
-            --query 'Stacks[0].Outputs[?OutputKey==`ApiEndpoint`].OutputValue' \
-            --output text)
-          curl -H "X-API-TOKEN: $API_TOKEN" $API_URL/health
+          source .venv/bin/activate
+          cdk deploy MyApp-prod --require-approval never
 ```
 
 ### Testing Environment
