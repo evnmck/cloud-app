@@ -1,6 +1,6 @@
 # cloud-app
 
-Full-stack cloud platform for processing and analyzing baseball game data. Features real-time file uploads, serverless data processing pipeline, and a React frontend with JWT authentication.
+Full-stack cloud platform for processing and analyzing baseball game data. Features real-time file uploads, serverless data processing pipeline, and a React frontend with token-based authentication (X-API-TOKEN).
 
 ## 🏗️ Architecture Overview
 
@@ -9,7 +9,7 @@ Full-stack cloud platform for processing and analyzing baseball game data. Featu
 │                            FRONTEND (React/Vite)                         │
 │  ┌──────────────────────┐              ┌──────────────────────┐          │
 │  │  Login Page          │              │  Dashboard           │          │
-│  │  (JWT Auth)          │◄────────────►│  (Job Status Poll)   │          │
+│  │  (Token Auth)        │◄────────────►│  (Job Status Poll)   │          │
 │  └──────────────────────┘              └──────────────────────┘          │
 │                │                                │                        │
 │                └────────────────┬───────────────┘                        │
@@ -240,8 +240,7 @@ Set up GitHub Secrets:
 - `AWS_REGION` - AWS region (e.g., us-east-1)
 - `AWS_ACCESS_KEY_ID` - AWS credentials
 - `AWS_SECRET_ACCESS_KEY` - AWS credentials
-- `API_TOKEN_DEV` - Dev API token
-- `API_TOKEN_PROD` - Prod API token
+- `API_TOKEN` - API token (used for both dev and prod environments)
 
 ### Automatic Deployment (GitHub Actions)
 
@@ -286,67 +285,19 @@ The project uses GitHub Actions for automated testing and deployment. All workfl
 
 | Trigger | Workflow | Stage | Action |
 |---------|----------|-------|--------|
-| **Pull Request** | `test.yml` | - | Run all tests (Glue, API, frontend) |
+| **PR to main / push to main / Manual** | `deploy.yml` → calls `test.yml` | - | Run Glue and API tests (via workflow_call) |
 | **PR to main** | `deploy.yml` | dev | Deploy to dev environment |
 | **Merge to main** | `deploy.yml` | prod | Deploy to prod environment |
 | **Manual (Anytime)** | `manual-test.yml` | - | Run specific or all test suites |
 | **Manual (Anytime)** | `deploy.yml` | dev/prod | Redeploy without code changes |
 
-### Test Pipeline (Runs on Every PR)
+### Test Pipeline
 
-```yaml
-# .github/workflows/test.yml
-name: Tests
+`test.yml` is invoked as a reusable workflow (`workflow_call`) from `deploy.yml`. It runs Glue and API unit tests but does **not** run frontend lint/build. See the actual workflow files for the current configuration:
 
-on: [pull_request, push]
-
-jobs:
-  glue-tests:
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v3
-      - uses: actions/setup-python@v4
-        with:
-          python-version: '3.9'
-      - name: Install dependencies
-        run: |
-          cd data/glue
-          pip install -r requirements.txt
-      - name: Run Glue tests
-        run: cd data/glue && pytest test_process.py -v --cov
-      - name: Upload coverage
-        uses: codecov/codecov-action@v3
-
-  api-tests:
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v3
-      - uses: actions/setup-python@v4
-        with:
-          python-version: '3.11'
-      - name: Install dependencies
-        run: |
-          cd backend/api
-          pip install -r requirements.txt
-      - name: Run API tests
-        run: cd backend/api && pytest tests/ -v --cov
-      - name: Upload coverage
-        uses: codecov/codecov-action@v3
-
-  frontend-lint:
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v3
-      - uses: actions/setup-node@v3
-        with:
-          node-version: '20'
-      - name: Install dependencies
-        run: cd frontend && npm install
-      - name: Run ESLint
-        run: cd frontend && npm run lint
-```
-
-**Test Results**: All tests must pass before merging to `main`. PR shows ✅ or ❌ status.
+- [`.github/workflows/test.yml`](.github/workflows/test.yml) — Glue and API unit tests (reusable, called by `deploy.yml`)
+- [`.github/workflows/deploy.yml`](.github/workflows/deploy.yml) — triggers tests then deploys to dev/prod
+- [`.github/workflows/manual-test.yml`](.github/workflows/manual-test.yml) — manually run Glue, API, or frontend checks
 
 ### Branch Protection & Merge Requirements
 
@@ -530,7 +481,7 @@ open htmlcov/index.html
 | Tests fail on PR | Check logs in Actions tab for specific error |
 | Deploy fails (credentials) | Verify AWS secrets in Settings → Secrets |
 | Deploy fails (CDK) | Run `cdk synth` locally to validate template |
-| Token environment variable missing | Add to GitHub Secrets: `API_TOKEN_DEV`, `API_TOKEN_PROD` |
+| Token environment variable missing | Add to GitHub Secrets: `API_TOKEN` |
 | Permissions error on S3/DynamoDB | Check IAM role attached to AWS credentials |
 
 ### Secrets Required for CI/CD
@@ -542,8 +493,7 @@ AWS_ACCESS_KEY_ID           # IAM user access key
 AWS_SECRET_ACCESS_KEY       # IAM user secret key
 AWS_REGION                  # e.g., us-east-1
 ACCOUNT_ID                  # Your AWS account ID
-API_TOKEN_DEV               # Token for dev environment
-API_TOKEN_PROD              # Token for prod environment
+API_TOKEN                   # API token (used for both dev and prod environments)
 ```
 
 ### Workflow Statistics (Monthly)
