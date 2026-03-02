@@ -44,9 +44,8 @@ class TestCreateUploadService:
     def test_presigned_url_called_with_correct_content_type(self, mock_repo, mock_presign):
         mock_presign.return_value = "https://s3.example.com/presigned"
         create_upload_service("file.csv", "text/csv")
-        _, kwargs = mock_presign.call_args if mock_presign.call_args.kwargs else (mock_presign.call_args.args, {})
         args = mock_presign.call_args.args
-        assert "text/csv" in args
+        assert args[2] == "text/csv"
 
 
 class TestGetJobService:
