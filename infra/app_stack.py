@@ -131,10 +131,10 @@ class AppStack(Stack):
             apigw.LambdaIntegration(api_lambda),
         )
 
-        # /jobs/{jobId}/status -> GET
+        # /jobs/{jobId}/status -> PUT
         status_res = job_id_res.add_resource("status")
         status_res.add_method(
-            "GET",
+            "PUT",
             apigw.LambdaIntegration(api_lambda),
         )
 
@@ -214,7 +214,7 @@ class AppStack(Stack):
         glue_default_args = {
             "--TempDir": f"s3://{upload_bucket.bucket_name}/temp/",
             "--job-bookmark-option": "job-bookmark-enable",
-            "--additional-python-modules": "pandas==2.0.3",
+            "--additional-python-modules": "pandas==2.2.0",
             "--JOBS_TABLE_NAME": jobs_table.table_name,
         }
         
@@ -264,16 +264,29 @@ class AppStack(Stack):
             }),
         )
 
+        # Fail state for job failures (ensures execution reflects failure)
+        job_failed = sfn.Fail(
+            self,
+            "JobFailed",
+            error="GlueJobFailed",
+            cause="The Glue job execution failed and was handled"
+        )
+
         # Success state
         job_succeeded = sfn.Pass(self, "JobSucceeded")
 
         # Define workflow with error handling
+        # On Glue failure → error handler → fail state
         start_glue_job.add_catch(
             handler=handle_failure,
             errors=["States.ALL"],
             result_path="$.error"
         )
         
+        # Error handler transitions to failure state
+        handle_failure.next(job_failed)
+        
+        # Success path
         definition = start_glue_job.next(job_succeeded)
 
         # Create state machine
