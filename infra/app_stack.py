@@ -244,8 +244,8 @@ class AppStack(Stack):
             lambda_function=error_handler,
             payload=sfn.TaskInput.from_object({
                 "jobId.$": "$.jobId",
-                "error.$": "$.Error",
-                "cause.$": "$.Cause",
+                "error.$": "$.error.Error",
+                "cause.$": "$.error.Cause",
             }),
         )
 
@@ -256,7 +256,7 @@ class AppStack(Stack):
         start_glue_job.add_catch(
             handler=handle_failure,
             errors=["States.ALL"],
-            result_path="$"
+            result_path="$.error"
         )
         
         definition = start_glue_job.next(job_succeeded)
