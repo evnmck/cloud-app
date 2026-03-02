@@ -92,7 +92,7 @@ jobs:
       - name: Install dependencies
         run: |
           cd frontend
-          npm install
+          npm ci
       
       - name: Run ESLint
         run: |
