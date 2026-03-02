@@ -196,6 +196,15 @@ def handler(event, context):
     
     print(f"Final extracted - jobId: {job_id}, bucket: {bucket}, key: {key}")
     
+    # Validate we have all required parameters
+    if not job_id or not bucket or not key:
+        error_msg = f"Missing required parameters: jobId={job_id}, bucket={bucket}, key={key}"
+        print(f"Error: {error_msg}")
+        return {
+            'statusCode': 400,
+            'body': json.dumps({'error': error_msg})
+        }
+    
     print(f"Processing s3://{bucket}/{key}")
     
     try:
