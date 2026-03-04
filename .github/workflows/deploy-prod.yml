@@ -1,17 +1,7 @@
-name: Deploy Dev
+name: Deploy Prod
 
 on:
-  workflow_dispatch:
-    inputs:
-      stage:
-        description: 'Stage to deploy to (dev only)'
-        required: true
-        default: 'dev'
-        type: choice
-        options:
-          - dev
-  
-  pull_request:
+  push:
     branches: [ main ]
 
 jobs:
@@ -20,19 +10,18 @@ jobs:
     permissions:
       contents: read
 
-  deploy-dev:
+  deploy-prod:
     needs: test
-    if: github.event_name == 'pull_request' || github.event_name == 'workflow_dispatch'
     runs-on: ubuntu-latest
     permissions:
       contents: read
     concurrency:
-      group: deploy-dev
+      group: deploy-prod
       cancel-in-progress: false
 
-    env:   
+    env:
       ACCOUNT_ID: ${{ secrets.ACCOUNT_ID }}
-      REGION: ${{ secrets.AWS_REGION }}  
+      REGION: ${{ secrets.AWS_REGION }}
       API_TOKEN: ${{ secrets.API_TOKEN }}
 
     steps:
@@ -66,8 +55,8 @@ jobs:
           aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
           aws-region: ${{ secrets.AWS_REGION }}
 
-      - name: Deploy dev stack (MyApp-dev)
+      - name: Deploy prod stack (MyApp-prod)
         working-directory: infra
         run: |
           source .venv/bin/activate
-          cdk deploy MyApp-dev --require-approval never
+          cdk deploy MyApp-prod --require-approval never
