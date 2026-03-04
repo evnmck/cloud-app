@@ -9,6 +9,7 @@ from aws_cdk import (
     aws_lambda as _lambda,
     aws_apigateway as apigw,
     aws_apigatewayv2 as apigwv2,
+    aws_apigatewayv2_integrations as apigwv2_integrations,
     aws_lambda_event_sources as lambda_events,
     aws_glue as glue,
     aws_iam as iam,
@@ -237,12 +238,12 @@ class AppStack(Stack):
         # Connect WebSocket Lambdas to routes
         websocket_api.add_route(
             "$connect",
-            integration=apigwv2.WebSocketIntegration(websocket_connect),
+            integration=apigwv2_integrations.WebSocketLambdaIntegration(websocket_connect),
         )
 
         websocket_api.add_route(
             "$disconnect",
-            integration=apigwv2.WebSocketIntegration(websocket_disconnect),
+            integration=apigwv2_integrations.WebSocketLambdaIntegration(websocket_disconnect),
         )
 
         # Export WebSocket URL for frontend
