@@ -220,16 +220,8 @@ class AppStack(Stack):
             readers=[glue_role]
         )
         
-        # Deploy Glue script to assets bucket
-        s3_deployment.BucketDeployment(
-            self, "DeployGlueScript",
-            sources=[s3_deployment.Source.asset("../data/glue/process.py")],
-            destination_bucket=glue_assets_bucket,
-            destination_key_prefix="scripts/",
-            prune=False,
-        )
-        
         # Deploy Glue utilities module to assets bucket
+        # BucketDeployment zips the modules directory
         s3_deployment.BucketDeployment(
             self, "DeployGlueUtils",
             sources=[s3_deployment.Source.asset("../data/glue/modules")],
@@ -267,7 +259,7 @@ class AppStack(Stack):
             command=glue.CfnJob.JobCommandProperty(
                 name="pythonshell",
                 python_version="3.9",
-                script_location=f"s3://{glue_assets_bucket.bucket_name}/scripts/process.py",
+                script_location=glue_script_asset.s3_object_url,
             ),
             default_arguments=glue_default_args,
         )
