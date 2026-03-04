@@ -228,7 +228,9 @@ class AppStack(Stack):
         websocket_send_update.add_to_role_policy(
             iam.PolicyStatement(
                 actions=["execute-api:Invoke"],
-                resources=[f"{websocket_api.arn}/*/@connections/*"]
+                resources=[
+                    f"arn:aws:execute-api:{self.region}:{self.account}:{websocket_api.api_id}/*/@connections/*"
+                ]
             )
         )
 
