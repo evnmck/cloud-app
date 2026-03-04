@@ -235,15 +235,54 @@ class AppStack(Stack):
             )
         )
 
-        # Connect WebSocket Lambdas to routes
-        websocket_api.add_route(
-            "$connect",
-            integration=apigwv2_integrations.WebSocketLambdaIntegration(websocket_connect),
+        # Connect WebSocket Lambdas to routes using lower-level constructs
+        # $connect integration
+        connect_integration = apigwv2.CfnIntegration(
+            self,
+            "ConnectIntegration",
+            api_id=websocket_api.api_id,
+            integration_type="AWS_PROXY",
+            integration_uri=f"arn:aws:apigatewayv2:{self.region}:lambda:path/2015-03-31/functions/{websocket_connect.function_arn}/invocations",
         )
-
-        websocket_api.add_route(
-            "$disconnect",
-            integration=apigwv2_integrations.WebSocketLambdaIntegration(websocket_disconnect),
+        
+        apigwv2.CfnRoute(
+            self,
+            "ConnectRoute",
+            api_id=websocket_api.api_id,
+            route_key="$connect",
+            target=f"integrations/{connect_integration.ref}",
+        )
+        
+        # $disconnect integration
+        disconnect_integration = apigwv2.CfnIntegration(
+            self,
+            "DisconnectIntegration",
+            api_id=websocket_api.api_id,
+            integration_type="AWS_PROXY",
+            integration_uri=f"arn:aws:apigatewayv2:{self.region}:lambda:path/2015-03-31/functions/{websocket_disconnect.function_arn}/invocations",
+        )
+        
+        apigwv2.CfnRoute(
+            self,
+            "DisconnectRoute",
+            api_id=websocket_api.api_id,
+            route_key="$disconnect",
+            target=f"integrations/{disconnect_integration.ref}",
+        )
+        
+        # Grant API Gateway permission to invoke the Lambdas
+        websocket_connect.add_permission(
+            "ApiGatewayInvoke",
+            principal=iam.ServicePrincipal("apigateway.amazonaws.com"),
+            action="lambda:InvokeFunction",
+            source_arn=f"arn:aws:execute-api:{self.region}:{self.account}:{websocket_api.api_id}/*",
+        )
+        
+        websocket_disconnect.add_permission(
+            "ApiGatewayInvoke",
+            principal=iam.ServicePrincipal("apigateway.amazonaws.com"),
+            action="lambda:InvokeFunction",
+            source_arn=f"arn:aws:execute-api:{self.region}:{self.account}:{websocket_api.api_id}/*",
         )
 
         # Export WebSocket URL for frontend
