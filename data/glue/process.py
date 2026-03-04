@@ -6,58 +6,38 @@ Extracts game summary, weather, player performance, and pitch-level details
 
 import json
 import sys
-from io import StringIO
-import boto3
-import pandas as pd
-from datetime import datetime, timezone
 import os
 import zipfile
 import tempfile
+from io import StringIO, BytesIO
+import boto3
+import pandas as pd
 
-# For Glue Python Shell, manually handle extra-py-files
-# They're passed as zip files and need to be extracted
-print(f"DEBUG: sys.argv: {sys.argv}")
-print(f"DEBUG: os.environ PYTHONPATH: {os.environ.get('PYTHONPATH', 'not set')}")
-
-# Find and extract the zip file containing glue_utils
-glue_utils_found = False
-for temp_dir in ['/tmp/glue-python-libs-1yKc', '/tmp', tempfile.gettempdir()]:
-    if not os.path.isdir(temp_dir):
-        continue
-    
-    for root, dirs, files in os.walk(temp_dir):
-        for file in files:
-            if file.endswith('.zip'):
-                zip_path = os.path.join(root, file)
-                print(f"DEBUG: Found zip file: {zip_path}")
-                
-                try:
-                    with zipfile.ZipFile(zip_path, 'r') as zip_ref:
-                        # List contents
-                        contents = zip_ref.namelist()
-                        print(f"DEBUG: Zip contents: {contents}")
-                        
-                        if 'glue_utils.py' in contents:
-                            # Extract to a temp directory
-                            extract_dir = tempfile.mkdtemp(prefix='glue_extra_')
-                            print(f"DEBUG: Extracting to {extract_dir}")
-                            zip_ref.extractall(extract_dir)
-                            sys.path.insert(0, extract_dir)
-                            glue_utils_found = True
-                            print(f"DEBUG: Successfully extracted glue_utils to {extract_dir}")
-                            break
-                except Exception as e:
-                    print(f"DEBUG: Error extracting {zip_path}: {e}")
+# Handle extra-py-files for Glue Python Shell
+try:
+    from glue_utils import update_job_status
+except ModuleNotFoundError:
+    # Extract S3 URL from --extra-py-files and download the zip
+    try:
+        idx = sys.argv.index('--extra-py-files')
+        s3_url = sys.argv[idx + 1]
         
-        if glue_utils_found:
-            break
-    
-    if glue_utils_found:
-        break
-
-print(f"DEBUG: glue_utils_found: {glue_utils_found}")
-
-from glue_utils import update_job_status
+        # Parse S3 URL: s3://bucket/key
+        s3_parts = s3_url.replace("s3://", "").split("/", 1)
+        bucket, key = s3_parts[0], s3_parts[1] if len(s3_parts) > 1 else ""
+        
+        # Download and extract
+        zip_bytes = boto3.client('s3').get_object(Bucket=bucket, Key=key)['Body'].read()
+        extract_dir = tempfile.mkdtemp()
+        
+        with BytesIO(zip_bytes) as z:
+            with zipfile.ZipFile(z, 'r') as ref:
+                ref.extractall(extract_dir)
+        
+        sys.path.insert(0, extract_dir)
+        from glue_utils import update_job_status
+    except Exception as e:
+        raise ImportError(f"Failed to load glue_utils: {e}")
 
 s3_client = boto3.client('s3')
 
