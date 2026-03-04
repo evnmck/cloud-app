@@ -57,3 +57,4 @@ dist-ssr
 backend/api/.coverage
 data/glue/.coverage
 data/glue/htmlcov/
+docs/info/*
