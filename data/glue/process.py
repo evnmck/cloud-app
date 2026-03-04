@@ -11,9 +11,31 @@ import boto3
 import pandas as pd
 from datetime import datetime, timezone
 import os
+import glob
 
-# Add current directory to path for extra-py-files
-sys.path.insert(0, os.getcwd())
+# Find and add glue_utils from extra-py-files extraction
+# Glue extracts extra-py-files to a temp directory, search for it
+print(f"DEBUG: Initial sys.path: {sys.path[:5]}...")  # Print first 5 entries
+print(f"DEBUG: Current working directory: {os.getcwd()}")
+print(f"DEBUG: Files in current directory: {os.listdir('.')[:10]}")  # First 10 files
+
+matching_paths = []
+for path_entry in sys.path[:]:
+    if 'glue' in path_entry.lower() or 'tmp' in path_entry.lower():
+        print(f"DEBUG: Found matching path: {path_entry}")
+        if os.path.isdir(path_entry):
+            print(f"DEBUG: Path is a directory, adding to sys.path: {path_entry}")
+            sys.path.insert(0, path_entry)
+            matching_paths.append(path_entry)
+            # List files in this directory
+            try:
+                files = os.listdir(path_entry)
+                print(f"DEBUG: Files in {path_entry}: {files[:10]}")
+            except Exception as e:
+                print(f"DEBUG: Could not list files in {path_entry}: {e}")
+
+print(f"DEBUG: Matching paths found: {matching_paths}")
+print(f"DEBUG: Updated sys.path (first 5): {sys.path[:5]}...")
 
 from glue_utils import update_job_status
 
