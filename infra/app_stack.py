@@ -213,7 +213,7 @@ class AppStack(Stack):
         # Create asset for Glue utilities
         glue_utils_asset = s3_assets.Asset(
             self, "GlueUtils",
-            path="../data/glue/glue_utils.py"
+            path="../data/glue/glue_modules"
         )
         glue_utils_asset.grant_read(glue_role)
 
