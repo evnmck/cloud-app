@@ -320,7 +320,7 @@ class AppStack(Stack):
 
         upload_trigger.add_environment("WEBSOCKET_SEND_UPDATE_ARN", websocket_send_update.function_arn)
 
-        upload_trigger.add_to_policy(
+        upload_trigger.add_to_role_policy(
             iam.PolicyStatement(
                 effect=iam.Effect.ALLOW,
                 actions=['lambda:InvokeFunction'],
@@ -346,7 +346,7 @@ class AppStack(Stack):
 
         error_handler.add_environment("WEBSOCKET_SEND_UPDATE_ARN", websocket_send_update.function_arn)
 
-        error_handler.add_to_policy(
+        error_handler.add_to_role_policy(
             iam.PolicyStatement(
                 effect=iam.Effect.ALLOW,
                 actions=['lambda:InvokeFunction'],
