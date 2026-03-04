@@ -204,11 +204,16 @@ class AppStack(Stack):
 
         glue_script_asset = s3_assets.Asset(
             self, "GlueScript",
-            path="../data/glue/process.py"
+            path="../data/glue/process.py",
+            readers=[glue_role]
         )
         
-        # Grant Glue role read access to the script asset
-        glue_script_asset.grant_read(glue_role)
+        # Create zipped asset for Glue utilities module
+        glue_utils_asset = s3_assets.Asset(
+            self, "GlueUtils",
+            path="../data/glue/modules",
+            readers=[glue_role]
+        )
 
         # ---------- Glue job ----------
         glue_default_args = {
@@ -225,6 +230,9 @@ class AppStack(Stack):
                 "--bucket": upload_bucket.bucket_name,
                 "--key": "tests_data/test_id/yankees_games_test.csv",
             })
+        
+        # Add extra Python files - utils are zipped
+        glue_default_args["--extra-py-files"] = glue_utils_asset.s3_object_url
         
         glue_job = glue.CfnJob(
             self, "DataProcessingJob",

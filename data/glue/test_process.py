@@ -1,4 +1,10 @@
 import os
+import sys
+from pathlib import Path
+
+# Add modules to Python path for imports
+sys.path.insert(0, str(Path(__file__).parent / "modules"))
+
 os.environ["JOBS_TABLE_NAME"] = "test-jobs-table"
 
 import pytest
@@ -284,7 +290,7 @@ class TestProcessGame:
 
 
 class TestHandler:
-    @patch('process.dynamodb')
+    @patch('glue_utils.dynamodb')
     @patch('process.s3_client')
     def test_handler_success(self, mock_s3, mock_dynamodb, mock_game_data):
         """Test handler success"""
@@ -323,7 +329,7 @@ class TestHandler:
         mock_s3.put_object.assert_called_once()
         mock_table.update_item.assert_called_once()
 
-    @patch('process.dynamodb')
+    @patch('glue_utils.dynamodb')
     @patch('process.s3_client')
     def test_handler_s3_error(self, mock_s3, mock_dynamodb):
         """Test handler with S3 error - should raise exception"""
@@ -345,7 +351,7 @@ class TestHandler:
         with pytest.raises(Exception, match='S3 error'):
             handler(event, context)
 
-    @patch('process.dynamodb')
+    @patch('glue_utils.dynamodb')
     @patch('process.s3_client')
     def test_handler_empty_csv(self, mock_s3, mock_dynamodb):
         """Test handler with empty CSV"""
