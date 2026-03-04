@@ -12,7 +12,7 @@ import pandas as pd
 from datetime import datetime, timezone
 import os
 
-from modules.glue_utils import update_job_status
+from glue_utils import update_job_status
 
 s3_client = boto3.client('s3')
 
