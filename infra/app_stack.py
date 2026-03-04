@@ -218,7 +218,7 @@ class AppStack(Stack):
             code=_lambda.Code.from_asset("../backend/websocket"),
             environment={
                 "WEBSOCKET_CONNECTIONS_TABLE": websocket_connections_table.table_name,
-                "WEBSOCKET_ENDPOINT": websocket_api.api_endpoint,
+                "WEBSOCKET_ENDPOINT": f"https://{websocket_api.api_id}.execute-api.{self.region}.amazonaws.com/{stage}",
             },
             timeout=Duration.seconds(30)
         )
@@ -235,14 +235,14 @@ class AppStack(Stack):
         )
 
         # Connect WebSocket Lambdas to routes
-        websocket_api.connect_route_options(
+        websocket_api.add_route(
+            "$connect",
             integration=apigwv2.WebSocketLambdaIntegration(websocket_connect),
-            id="ConnectRoute"
         )
 
-        websocket_api.disconnect_route_options(
+        websocket_api.add_route(
+            "$disconnect",
             integration=apigwv2.WebSocketLambdaIntegration(websocket_disconnect),
-            id="DisconnectRoute"
         )
 
         # Export WebSocket URL for frontend
