@@ -275,6 +275,16 @@ class AppStack(Stack):
             )
         )
 
+        upload_trigger.add_environment("WEBSOCKET_SEND_UPDATE_ARN", websocket_send_update.function_arn)
+
+        upload_trigger.add_to_policy(
+            iam.PolicyStatement(
+                effect=iam.Effect.ALLOW,
+                actions=['lambda:InvokeFunction'],
+                resources=[websocket_send_update.function_arn]
+            )
+        )
+
         #---------- Lambda B: Error handler for Step Function ----------
         error_handler = _lambda.Function(
             self,
@@ -290,6 +300,16 @@ class AppStack(Stack):
         )
 
         jobs_table.grant_read_write_data(error_handler)
+
+        error_handler.add_environment("WEBSOCKET_SEND_UPDATE_ARN", websocket_send_update.function_arn)
+
+        error_handler.add_to_policy(
+            iam.PolicyStatement(
+                effect=iam.Effect.ALLOW,
+                actions=['lambda:InvokeFunction'],
+                resources=[websocket_send_update.function_arn]
+            )
+        )
 
         # ---------- IAM role for Glue job ----------
         glue_role = iam.Role(
@@ -355,7 +375,7 @@ class AppStack(Stack):
                 "--jobId.$": "$.jobId",
                 "--bucket.$": "$.bucket",
                 "--key.$": "$.key",
-            }),
+            }),           
         )
 
         # Handle failure - invoke error handler Lambda
@@ -378,6 +398,17 @@ class AppStack(Stack):
             cause="The Glue job execution failed and was handled"
         )
 
+        send_update_task = sfn_tasks.LambdaInvoke(
+            self,
+            "SendJobUpdate",  # Task name
+            lambda_function=websocket_send_update,  # Which Lambda to call
+            payload=sfn.TaskInput.from_object({
+                "jobId.$": "$.jobId",  # Pass jobId from input
+                "status": "PROCESSED",  # Hard-coded status
+            }),
+        )
+
+
         # Success state
         job_succeeded = sfn.Pass(self, "JobSucceeded")
 
@@ -393,7 +424,7 @@ class AppStack(Stack):
         handle_failure.next(job_failed)
         
         # Success path
-        definition = start_glue_job.next(job_succeeded)
+        definition = start_glue_job.next(send_update_task).next(job_succeeded)
 
         # Create state machine
         state_machine = sfn.StateMachine(

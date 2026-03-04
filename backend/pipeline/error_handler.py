@@ -4,8 +4,11 @@ Step Function error handler Lambda
 Receives failures from Step Function and marks job as FAILED
 """
 import json
+import os
+import boto3
 from shared_services import update_job
 
+lambda_client = boto3.client('lambda')
 
 def handler(event, context):
     """Handle Step Function failure callbacks"""
@@ -30,7 +33,22 @@ def handler(event, context):
             error=error_message[:1000]  # Truncate to field limit
         )
         
-        print(f"Job {job_id} marked as FAILED: {error_message}")
+        print(f"Job {job_id} marked as FAILED: {error_message} in DB")
+
+        try:
+            lambda_client.invoke(
+                FunctionName=os.environ['WEBSOCKET_SEND_UPDATE_ARN'],
+                InvocationType='Event',  # Async invocation
+                Payload=json.dumps({
+                    "jobId": job_id,
+                    "status": "FAILED",
+                    "results": {"error": error_message[:1000]}  # Include error in WebSocket update
+                }).encode('utf-8')
+            )
+            print(f"Invoked WebSocket update for FAILED job {job_id}")
+        except Exception as e:
+            print(f"Warning: Failed to send WebSocket update for FAILED job: {e}")
+            # Continue even if WebSocket update fails
         
         return {
             'statusCode': 200,
