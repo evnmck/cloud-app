@@ -7,14 +7,10 @@ Extracts game summary, weather, player performance, and pitch-level details
 import json
 import sys
 from io import StringIO
-from pathlib import Path
 import boto3
 import pandas as pd
 from datetime import datetime, timezone
 import os
-
-# Add glue_modules to path for local development
-sys.path.insert(0, str(Path(__file__).parent / "glue_modules"))
 
 from glue_utils import update_job_status
 

@@ -210,10 +210,11 @@ class AppStack(Stack):
         # Grant Glue role read access to the script asset
         glue_script_asset.grant_read(glue_role)
 
-        # Create asset for Glue utilities
+        # Create asset for Glue utilities - CDK will zip the modules directory
+        # When extracted by Glue, glue_utils.py will be at the root level
         glue_utils_asset = s3_assets.Asset(
             self, "GlueUtils",
-            path="../data/glue/glue_modules"
+            path="../data/glue/modules"
         )
         glue_utils_asset.grant_read(glue_role)
 
