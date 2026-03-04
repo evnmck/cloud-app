@@ -237,12 +237,12 @@ class AppStack(Stack):
         # Connect WebSocket Lambdas to routes
         websocket_api.add_route(
             "$connect",
-            integration=apigwv2.WebSocketLambdaIntegration(websocket_connect),
+            integration=apigwv2.WebSocketIntegration(websocket_connect),
         )
 
         websocket_api.add_route(
             "$disconnect",
-            integration=apigwv2.WebSocketLambdaIntegration(websocket_disconnect),
+            integration=apigwv2.WebSocketIntegration(websocket_disconnect),
         )
 
         # Export WebSocket URL for frontend
