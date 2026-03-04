@@ -220,14 +220,11 @@ class AppStack(Stack):
             readers=[glue_role]
         )
         
-        # Deploy Glue utilities module to assets bucket
-        # BucketDeployment zips the modules directory
-        s3_deployment.BucketDeployment(
-            self, "DeployGlueUtils",
-            sources=[s3_deployment.Source.asset("../data/glue/modules")],
-            destination_bucket=glue_assets_bucket,
-            destination_key_prefix="libs/",
-            prune=False,
+        # Create zipped asset for Glue utilities module
+        glue_utils_asset = s3_assets.Asset(
+            self, "GlueUtils",
+            path="../data/glue/modules",
+            readers=[glue_role]
         )
         
         # Grant Glue role read access to the assets bucket
@@ -249,8 +246,8 @@ class AppStack(Stack):
                 "--key": "tests_data/test_id/yankees_games_test.csv",
             })
         
-        # Add extra Python files - utils are zipped in libs/ prefix
-        glue_default_args["--extra-py-files"] = f"s3://{glue_assets_bucket.bucket_name}/libs/modules.zip"
+        # Add extra Python files - utils are zipped
+        glue_default_args["--extra-py-files"] = glue_utils_asset.s3_object_url
         
         glue_job = glue.CfnJob(
             self, "DataProcessingJob",
