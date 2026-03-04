@@ -11,7 +11,6 @@ from aws_cdk import (
     aws_glue as glue,
     aws_iam as iam,
     aws_s3_assets as s3_assets,
-    aws_s3_deployment as s3_deployment,
     aws_stepfunctions as sfn,
     aws_stepfunctions_tasks as sfn_tasks,
 )
@@ -52,17 +51,6 @@ class AppStack(Stack):
             self,
             "UploadBucket",
             bucket_name=f"evnmck-baseball-uploads-{stage}",
-            block_public_access=s3.BlockPublicAccess.BLOCK_ALL,
-            versioned=False,
-            removal_policy=RemovalPolicy.DESTROY if stage == "dev" else RemovalPolicy.RETAIN,
-            auto_delete_objects=True if stage == "dev" else False,
-        )
-
-        # ---------- S3: Glue assets bucket ----------
-        glue_assets_bucket = s3.Bucket(
-            self,
-            "GlueAssetsBucket",
-            bucket_name=f"evnmck-baseball-glue-assets-{stage}",
             block_public_access=s3.BlockPublicAccess.BLOCK_ALL,
             versioned=False,
             removal_policy=RemovalPolicy.DESTROY if stage == "dev" else RemovalPolicy.RETAIN,
