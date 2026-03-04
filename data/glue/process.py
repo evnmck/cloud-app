@@ -11,31 +11,51 @@ import boto3
 import pandas as pd
 from datetime import datetime, timezone
 import os
-import glob
+import zipfile
+import tempfile
 
-# Find and add glue_utils from extra-py-files extraction
-# Glue extracts extra-py-files to a temp directory, search for it
-print(f"DEBUG: Initial sys.path: {sys.path[:5]}...")  # Print first 5 entries
-print(f"DEBUG: Current working directory: {os.getcwd()}")
-print(f"DEBUG: Files in current directory: {os.listdir('.')[:10]}")  # First 10 files
+# For Glue Python Shell, manually handle extra-py-files
+# They're passed as zip files and need to be extracted
+print(f"DEBUG: sys.argv: {sys.argv}")
+print(f"DEBUG: os.environ PYTHONPATH: {os.environ.get('PYTHONPATH', 'not set')}")
 
-matching_paths = []
-for path_entry in sys.path[:]:
-    if 'glue' in path_entry.lower() or 'tmp' in path_entry.lower():
-        print(f"DEBUG: Found matching path: {path_entry}")
-        if os.path.isdir(path_entry):
-            print(f"DEBUG: Path is a directory, adding to sys.path: {path_entry}")
-            sys.path.insert(0, path_entry)
-            matching_paths.append(path_entry)
-            # List files in this directory
-            try:
-                files = os.listdir(path_entry)
-                print(f"DEBUG: Files in {path_entry}: {files[:10]}")
-            except Exception as e:
-                print(f"DEBUG: Could not list files in {path_entry}: {e}")
+# Find and extract the zip file containing glue_utils
+glue_utils_found = False
+for temp_dir in ['/tmp/glue-python-libs-1yKc', '/tmp', tempfile.gettempdir()]:
+    if not os.path.isdir(temp_dir):
+        continue
+    
+    for root, dirs, files in os.walk(temp_dir):
+        for file in files:
+            if file.endswith('.zip'):
+                zip_path = os.path.join(root, file)
+                print(f"DEBUG: Found zip file: {zip_path}")
+                
+                try:
+                    with zipfile.ZipFile(zip_path, 'r') as zip_ref:
+                        # List contents
+                        contents = zip_ref.namelist()
+                        print(f"DEBUG: Zip contents: {contents}")
+                        
+                        if 'glue_utils.py' in contents:
+                            # Extract to a temp directory
+                            extract_dir = tempfile.mkdtemp(prefix='glue_extra_')
+                            print(f"DEBUG: Extracting to {extract_dir}")
+                            zip_ref.extractall(extract_dir)
+                            sys.path.insert(0, extract_dir)
+                            glue_utils_found = True
+                            print(f"DEBUG: Successfully extracted glue_utils to {extract_dir}")
+                            break
+                except Exception as e:
+                    print(f"DEBUG: Error extracting {zip_path}: {e}")
+        
+        if glue_utils_found:
+            break
+    
+    if glue_utils_found:
+        break
 
-print(f"DEBUG: Matching paths found: {matching_paths}")
-print(f"DEBUG: Updated sys.path (first 5): {sys.path[:5]}...")
+print(f"DEBUG: glue_utils_found: {glue_utils_found}")
 
 from glue_utils import update_job_status
 
