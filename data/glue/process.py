@@ -14,63 +14,50 @@ import os
 import zipfile
 import tempfile
 
-# For Glue Python Shell, manually handle extra-py-files if needed
-# Try direct import first - Glue might have already added it to sys.path
-try:
-    from glue_utils import update_job_status
-    print(f"DEBUG: Successfully imported glue_utils directly")
-except ModuleNotFoundError:
-    print(f"DEBUG: Direct import failed, downloading from S3...")
+# For Glue Python Shell, manually handle extra-py-files
+# They're passed as zip files and need to be extracted
+print(f"DEBUG: sys.argv: {sys.argv}")
+print(f"DEBUG: os.environ PYTHONPATH: {os.environ.get('PYTHONPATH', 'not set')}")
+
+# Find and extract the zip file containing glue_utils
+glue_utils_found = False
+for temp_dir in ['/tmp/glue-python-libs-1yKc', '/tmp', tempfile.gettempdir()]:
+    if not os.path.isdir(temp_dir):
+        continue
     
-    # Extract the S3 URL from --extra-py-files parameter
-    extra_py_files_url = None
-    try:
-        idx = sys.argv.index('--extra-py-files')
-        if idx + 1 < len(sys.argv):
-            extra_py_files_url = sys.argv[idx + 1]
-            print(f"DEBUG: Found --extra-py-files: {extra_py_files_url}")
-    except ValueError:
-        print(f"DEBUG: --extra-py-files not found in sys.argv")
+    for root, dirs, files in os.walk(temp_dir):
+        for file in files:
+            if file.endswith('.zip'):
+                zip_path = os.path.join(root, file)
+                print(f"DEBUG: Found zip file: {zip_path}")
+                
+                try:
+                    with zipfile.ZipFile(zip_path, 'r') as zip_ref:
+                        # List contents
+                        contents = zip_ref.namelist()
+                        print(f"DEBUG: Zip contents: {contents}")
+                        
+                        if 'glue_utils.py' in contents:
+                            # Extract to a temp directory
+                            extract_dir = tempfile.mkdtemp(prefix='glue_extra_')
+                            print(f"DEBUG: Extracting to {extract_dir}")
+                            zip_ref.extractall(extract_dir)
+                            sys.path.insert(0, extract_dir)
+                            glue_utils_found = True
+                            print(f"DEBUG: Successfully extracted glue_utils to {extract_dir}")
+                            break
+                except Exception as e:
+                    print(f"DEBUG: Error extracting {zip_path}: {e}")
+        
+        if glue_utils_found:
+            break
     
-    if extra_py_files_url:
-        try:
-            # Parse S3 URL and download the zip
-            # URL format: s3://bucket-name/path/to/file.zip
-            s3_url_parts = extra_py_files_url.replace("s3://", "").split("/", 1)
-            bucket = s3_url_parts[0]
-            key = s3_url_parts[1] if len(s3_url_parts) > 1 else ""
-            
-            print(f"DEBUG: Downloading from S3 - bucket: {bucket}, key: {key}")
-            
-            s3 = boto3.client('s3')
-            zip_bytes = s3.get_object(Bucket=bucket, Key=key)['Body'].read()
-            
-            # Extract to temp directory
-            extract_dir = tempfile.mkdtemp(prefix='glue_extra_')
-            print(f"DEBUG: Extracting to {extract_dir}")
-            
-            with zipfile.ZipFile(tempfile.NamedTemporaryFile(delete=False) if False else tempfile.SpooledTemporaryFile()) as temp_zip:
-                temp_zip.write(zip_bytes)
-                temp_zip.seek(0)
-                with zipfile.ZipFile(temp_zip, 'r') as zip_ref:
-                    contents = zip_ref.namelist()
-                    print(f"DEBUG: Zip contents: {contents}")
-                    if 'glue_utils.py' in contents:
-                        zip_ref.extractall(extract_dir)
-                        sys.path.insert(0, extract_dir)
-                        print(f"DEBUG: Successfully extracted glue_utils from S3")
-                    else:
-                        print(f"DEBUG: WARNING - glue_utils.py not found in zip")
-        except Exception as e:
-            print(f"DEBUG: Error downloading/extracting from S3: {e}")
-            import traceback
-            traceback.print_exc()
-            raise
-    else:
-        print(f"DEBUG: ERROR - Could not find --extra-py-files in sys.argv")
-        raise ImportError("Could not find glue_utils module and --extra-py-files not specified")
-    
-    from glue_utils import update_job_status
+    if glue_utils_found:
+        break
+
+print(f"DEBUG: glue_utils_found: {glue_utils_found}")
+
+from glue_utils import update_job_status
 
 s3_client = boto3.client('s3')
 
@@ -411,4 +398,3 @@ if __name__ == '__main__':
     
     result = handler(glue_args, None)
     print(f"Handler result: {result}")
-
