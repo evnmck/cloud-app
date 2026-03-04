@@ -1,4 +1,10 @@
 import os
+import sys
+from pathlib import Path
+
+# Add glue_modules to Python path for imports
+sys.path.insert(0, str(Path(__file__).parent / "glue_modules"))
+
 os.environ["JOBS_TABLE_NAME"] = "test-jobs-table"
 
 import pytest
