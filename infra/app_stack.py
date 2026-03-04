@@ -223,7 +223,6 @@ class AppStack(Stack):
             "--job-bookmark-option": "job-bookmark-enable",
             "--additional-python-modules": "pandas==2.2.0",
             "--JOBS_TABLE_NAME": jobs_table.table_name,
-            "--extra-py-files": glue_utils_asset.s3_object_url,
         }
         
         # Dev only: add test defaults for manual testing
@@ -233,6 +232,9 @@ class AppStack(Stack):
                 "--bucket": upload_bucket.bucket_name,
                 "--key": "tests_data/test_id/yankees_games_test.csv",
             })
+        
+        # Add extra Python files for both dev and prod
+        glue_default_args["--extra-py-files"] = glue_utils_asset.s3_object_url
         
         glue_job = glue.CfnJob(
             self, "DataProcessingJob",
