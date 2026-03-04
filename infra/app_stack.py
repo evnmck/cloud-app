@@ -210,12 +210,20 @@ class AppStack(Stack):
         # Grant Glue role read access to the script asset
         glue_script_asset.grant_read(glue_role)
 
+        # Create asset for Glue utilities
+        glue_utils_asset = s3_assets.Asset(
+            self, "GlueUtils",
+            path="../data/glue/glue_utils.py"
+        )
+        glue_utils_asset.grant_read(glue_role)
+
         # ---------- Glue job ----------
         glue_default_args = {
             "--TempDir": f"s3://{upload_bucket.bucket_name}/temp/",
             "--job-bookmark-option": "job-bookmark-enable",
             "--additional-python-modules": "pandas==2.2.0",
             "--JOBS_TABLE_NAME": jobs_table.table_name,
+            "--extra-py-files": glue_utils_asset.s3_object_url,
         }
         
         # Dev only: add test defaults for manual testing

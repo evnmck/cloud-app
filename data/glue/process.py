@@ -12,8 +12,9 @@ import pandas as pd
 from datetime import datetime, timezone
 import os
 
+from glue_utils import update_job_status
+
 s3_client = boto3.client('s3')
-dynamodb = boto3.resource("dynamodb")
 
 
 def extract_game_summary(game_data):
@@ -241,29 +242,6 @@ def process_game(raw_game_json, game_id, date):
         raise
 
 
-def update_job_repository(job_id: str, status: str, **extra_fields):
-    """Update job record in DynamoDB"""
-    jobs_table = dynamodb.Table(os.environ["JOBS_TABLE_NAME"])
-    
-    update_expr = 'SET #status = :status, updatedAt = :now'
-    attr_names = {'#status': 'status'}
-    attr_values = {
-        ':status': status,
-        ':now': datetime.now(timezone.utc).isoformat(),
-    }
-    
-    for i, (key, value) in enumerate(extra_fields.items()):
-        update_expr += f', {key} = :val{i}'
-        attr_values[f':val{i}'] = value
-    
-    jobs_table.update_item(
-        Key={'jobId': job_id},
-        UpdateExpression=update_expr,
-        ExpressionAttributeNames=attr_names,
-        ExpressionAttributeValues=attr_values,
-    )
-
-
 def handler(event, context):
     """AWS Glue job handler"""
     print(f"Event: {event}")
@@ -340,7 +318,7 @@ def handler(event, context):
         print(f"Processed {len(processed_games)} games")
         print(f"Output saved to s3://{bucket}/{output_key}")
         
-        update_job_repository(
+        update_job_status(
             job_id,
             'PROCESSED',
             processedDataLocation=f"s3://{bucket}/{output_key}"
