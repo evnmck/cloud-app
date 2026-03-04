@@ -4,6 +4,11 @@ Full-stack cloud platform for processing and analyzing baseball game data. Featu
 
 ## 🏗️ Architecture Overview
 
+### High Level Diagram
+
+![Cloud App Architecture Diagram](docs/images/architecture.png)
+
+### Detailed Diagram
 ```
 ┌─────────────────────────────────────────────────────────────────────────┐
 │                            FRONTEND (React/Vite)                         │
