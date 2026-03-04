@@ -214,9 +214,6 @@ class AppStack(Stack):
             path="../data/glue/modules",
             readers=[glue_role]
         )
-        
-        # Grant Glue role read access to the assets bucket
-        glue_assets_bucket.grant_read(glue_role)
 
         # ---------- Glue job ----------
         glue_default_args = {
