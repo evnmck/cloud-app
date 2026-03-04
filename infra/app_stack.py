@@ -8,6 +8,7 @@ from aws_cdk import (
     aws_s3 as s3,
     aws_lambda as _lambda,
     aws_apigateway as apigw,
+    aws_apigatewayv2 as apigwv2,
     aws_lambda_event_sources as lambda_events,
     aws_glue as glue,
     aws_iam as iam,
@@ -161,13 +162,13 @@ class AppStack(Stack):
         )
 
         # ---------- WebSocket API Gateway ----------
-        websocket_api = apigw.WebSocketApi(
+        websocket_api = apigwv2.WebSocketApi(
             self,
             "JobStatusWebSocket",
             route_selection_expression="$request.body.action"
         )
 
-        websocket_stage = apigw.WebSocketStage(
+        websocket_stage = apigwv2.WebSocketStage(
             self,
             "WebSocketStage",
             web_socket_api=websocket_api,
@@ -233,12 +234,12 @@ class AppStack(Stack):
 
         # Connect WebSocket Lambdas to routes
         websocket_api.connect_route_options(
-            integration=apigw.WebSocketLambdaIntegration(websocket_connect),
+            integration=apigwv2.WebSocketLambdaIntegration(websocket_connect),
             id="ConnectRoute"
         )
 
         websocket_api.disconnect_route_options(
-            integration=apigw.WebSocketLambdaIntegration(websocket_disconnect),
+            integration=apigwv2.WebSocketLambdaIntegration(websocket_disconnect),
             id="DisconnectRoute"
         )
 
