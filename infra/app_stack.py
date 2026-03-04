@@ -3,6 +3,7 @@ from aws_cdk import (
     Stack,
     Duration,
     RemovalPolicy,
+    CfnOutput,
     aws_dynamodb as dynamodb,
     aws_s3 as s3,
     aws_lambda as _lambda,
@@ -143,6 +144,111 @@ class AppStack(Stack):
         health_res.add_method(
             "GET",
             apigw.LambdaIntegration(api_lambda),
+        )
+
+        # ---------- DynamoDB: WebSocket connections table ----------
+        websocket_connections_table = dynamodb.Table(
+            self,
+            "WebSocketConnectionsTable",
+            table_name=f"evnmck-baseball-{stage}-websocket-connections",
+            partition_key=dynamodb.Attribute(
+                name="connectionId",
+                type=dynamodb.AttributeType.STRING,
+            ),
+            billing_mode=dynamodb.BillingMode.PAY_PER_REQUEST,
+            removal_policy=RemovalPolicy.DESTROY if stage == "dev" else RemovalPolicy.RETAIN,
+            time_to_live_attribute="ttl",
+        )
+
+        # ---------- WebSocket API Gateway ----------
+        websocket_api = apigw.WebSocketApi(
+            self,
+            "JobStatusWebSocket",
+            route_selection_expression="$request.body.action"
+        )
+
+        websocket_stage = apigw.WebSocketStage(
+            self,
+            "WebSocketStage",
+            web_socket_api=websocket_api,
+            stage_name=stage,
+            throttle=apigw.ThrottleSettings(
+                rate_limit=10000,
+                burst_limit=5000
+            )
+        )
+
+        # ---------- WebSocket Lambdas ----------
+        # $connect Lambda
+        websocket_connect = _lambda.Function(
+            self,
+            "WebSocketConnect",
+            function_name=f"evnmck-baseball-{stage}-websocket-connect",
+            runtime=_lambda.Runtime.PYTHON_3_11,
+            handler="connect.handler",
+            code=_lambda.Code.from_asset("../backend/websocket"),
+            environment={
+                "WEBSOCKET_CONNECTIONS_TABLE": websocket_connections_table.table_name,
+            }
+        )
+        websocket_connections_table.grant_write_data(websocket_connect)
+
+        # $disconnect Lambda
+        websocket_disconnect = _lambda.Function(
+            self,
+            "WebSocketDisconnect",
+            function_name=f"evnmck-baseball-{stage}-websocket-disconnect",
+            runtime=_lambda.Runtime.PYTHON_3_11,
+            handler="disconnect.handler",
+            code=_lambda.Code.from_asset("../backend/websocket"),
+            environment={
+                "WEBSOCKET_CONNECTIONS_TABLE": websocket_connections_table.table_name,
+            }
+        )
+        websocket_connections_table.grant_write_data(websocket_disconnect)
+
+        # send_job_update Lambda
+        websocket_send_update = _lambda.Function(
+            self,
+            "WebSocketSendUpdate",
+            function_name=f"evnmck-baseball-{stage}-websocket-send-update",
+            runtime=_lambda.Runtime.PYTHON_3_11,
+            handler="send_update.handler",
+            code=_lambda.Code.from_asset("../backend/websocket"),
+            environment={
+                "WEBSOCKET_CONNECTIONS_TABLE": websocket_connections_table.table_name,
+                "WEBSOCKET_ENDPOINT": websocket_api.api_endpoint,
+            },
+            timeout=Duration.seconds(30)
+        )
+        websocket_connections_table.grant_read_data(websocket_send_update)
+        
+        # Grant permission to invoke post_to_connection
+        websocket_send_update.add_to_role_policy(
+            iam.PolicyStatement(
+                actions=["execute-api:Invoke"],
+                resources=[f"{websocket_api.arn}/*/@connections/*"]
+            )
+        )
+
+        # Connect WebSocket Lambdas to routes
+        websocket_api.connect_route_options(
+            integration=apigw.WebSocketLambdaIntegration(websocket_connect),
+            id="ConnectRoute"
+        )
+
+        websocket_api.disconnect_route_options(
+            integration=apigw.WebSocketLambdaIntegration(websocket_disconnect),
+            id="DisconnectRoute"
+        )
+
+        # Export WebSocket URL for frontend
+        CfnOutput(
+            self,
+            "WebSocketURL",
+            value=websocket_api.api_endpoint,
+            export_name=f"evnmck-baseball-{stage}-websocket-url",
+            description="WebSocket API endpoint URL"
         )
 
         #---------- Lambda A: S3 trigger -> Start Step Function ----------
