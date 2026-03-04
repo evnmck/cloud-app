@@ -57,6 +57,17 @@ class AppStack(Stack):
             auto_delete_objects=True if stage == "dev" else False,
         )
 
+        # ---------- S3: Glue assets bucket ----------
+        glue_assets_bucket = s3.Bucket(
+            self,
+            "GlueAssetsBucket",
+            bucket_name=f"evnmck-baseball-glue-assets-{stage}",
+            block_public_access=s3.BlockPublicAccess.BLOCK_ALL,
+            versioned=False,
+            removal_policy=RemovalPolicy.DESTROY if stage == "dev" else RemovalPolicy.RETAIN,
+            auto_delete_objects=True if stage == "dev" else False,
+        )
+
         upload_bucket.add_cors_rule(
             allowed_methods=[
                 s3.HttpMethods.PUT,
@@ -204,19 +215,17 @@ class AppStack(Stack):
 
         glue_script_asset = s3_assets.Asset(
             self, "GlueScript",
-            path="../data/glue/process.py"
+            path="../data/glue/process.py",
+            readers=[glue_role]
         )
         
-        # Grant Glue role read access to the script asset
-        glue_script_asset.grant_read(glue_role)
-
         # Create asset for Glue utilities - CDK will zip the modules directory
         # When extracted by Glue, glue_utils.py will be at the root level
         glue_utils_asset = s3_assets.Asset(
             self, "GlueUtils",
-            path="../data/glue/modules"
+            path="../data/glue/modules",
+            readers=[glue_role]
         )
-        glue_utils_asset.grant_read(glue_role)
 
         # ---------- Glue job ----------
         glue_default_args = {
