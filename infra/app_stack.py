@@ -11,6 +11,7 @@ from aws_cdk import (
     aws_glue as glue,
     aws_iam as iam,
     aws_s3_assets as s3_assets,
+    aws_s3_deployment as s3_deployment,
     aws_stepfunctions as sfn,
     aws_stepfunctions_tasks as sfn_tasks,
 )
@@ -219,13 +220,26 @@ class AppStack(Stack):
             readers=[glue_role]
         )
         
-        # Create asset for Glue utilities - CDK will zip the modules directory
-        # When extracted by Glue, glue_utils.py will be at the root level
-        glue_utils_asset = s3_assets.Asset(
-            self, "GlueUtils",
-            path="../data/glue/modules",
-            readers=[glue_role]
+        # Deploy Glue script to assets bucket
+        s3_deployment.BucketDeployment(
+            self, "DeployGlueScript",
+            sources=[s3_deployment.Source.asset("../data/glue/process.py")],
+            destination_bucket=glue_assets_bucket,
+            destination_key_prefix="scripts/",
+            prune=False,
         )
+        
+        # Deploy Glue utilities module to assets bucket
+        s3_deployment.BucketDeployment(
+            self, "DeployGlueUtils",
+            sources=[s3_deployment.Source.asset("../data/glue/modules")],
+            destination_bucket=glue_assets_bucket,
+            destination_key_prefix="libs/",
+            prune=False,
+        )
+        
+        # Grant Glue role read access to the assets bucket
+        glue_assets_bucket.grant_read(glue_role)
 
         # ---------- Glue job ----------
         glue_default_args = {
@@ -243,8 +257,8 @@ class AppStack(Stack):
                 "--key": "tests_data/test_id/yankees_games_test.csv",
             })
         
-        # Add extra Python files for both dev and prod
-        glue_default_args["--extra-py-files"] = glue_utils_asset.s3_object_url
+        # Add extra Python files - utils are zipped in libs/ prefix
+        glue_default_args["--extra-py-files"] = f"s3://{glue_assets_bucket.bucket_name}/libs/modules.zip"
         
         glue_job = glue.CfnJob(
             self, "DataProcessingJob",
@@ -253,7 +267,7 @@ class AppStack(Stack):
             command=glue.CfnJob.JobCommandProperty(
                 name="pythonshell",
                 python_version="3.9",
-                script_location=glue_script_asset.s3_object_url,
+                script_location=f"s3://{glue_assets_bucket.bucket_name}/scripts/process.py",
             ),
             default_arguments=glue_default_args,
         )
