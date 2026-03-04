@@ -240,7 +240,6 @@ class AppStack(Stack):
             "$connect",
             integration=apigwv2_integrations.WebSocketAwsIntegration(
                 handler=websocket_connect,
-                integration_type=apigwv2_integrations.WebSocketIntegrationType.AWS_PROXY,
             ),
         )
 
@@ -248,7 +247,6 @@ class AppStack(Stack):
             "$disconnect",
             integration=apigwv2_integrations.WebSocketAwsIntegration(
                 handler=websocket_disconnect,
-                integration_type=apigwv2_integrations.WebSocketIntegrationType.AWS_PROXY,
             ),
         )
 
