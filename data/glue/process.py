@@ -12,6 +12,9 @@ import pandas as pd
 from datetime import datetime, timezone
 import os
 
+# Add current directory to path for extra-py-files
+sys.path.insert(0, os.getcwd())
+
 from glue_utils import update_job_status
 
 s3_client = boto3.client('s3')
