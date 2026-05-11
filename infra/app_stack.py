@@ -275,14 +275,14 @@ class AppStack(Stack):
             "ApiGatewayInvoke",
             principal=iam.ServicePrincipal("apigateway.amazonaws.com"),
             action="lambda:InvokeFunction",
-            source_arn=f"arn:aws:execute-api:{self.region}:{self.account}:{websocket_api.api_id}/*",
+            source_arn=f"arn:aws:execute-api:{self.region}:{self.account}:{websocket_api.api_id}/{stage}/$connect",
         )
         
         websocket_disconnect.add_permission(
             "ApiGatewayInvoke",
             principal=iam.ServicePrincipal("apigateway.amazonaws.com"),
             action="lambda:InvokeFunction",
-            source_arn=f"arn:aws:execute-api:{self.region}:{self.account}:{websocket_api.api_id}/*",
+            source_arn=f"arn:aws:execute-api:{self.region}:{self.account}:{websocket_api.api_id}/{stage}/$disconnect",
         )
 
         # Export WebSocket URL for frontend
