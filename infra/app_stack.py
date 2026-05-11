@@ -234,41 +234,17 @@ class AppStack(Stack):
             )
         )
 
-        # Connect WebSocket Lambdas to routes using lower-level constructs
-        # $connect integration
-        connect_integration = apigwv2.CfnIntegration(
-            self,
-            "ConnectIntegration",
-            api_id=websocket_api.api_id,
-            integration_type="AWS_PROXY",
-            integration_uri=websocket_connect.function_arn,
-            payload_format_version="1.0",
+        # Connect WebSocket Lambdas to routes
+        # $connect route with Lambda integration
+        websocket_api.add_route(
+            "$connect",
+            integration=apigwv2_integrations.WebSocketLambdaIntegration(websocket_connect)
         )
         
-        apigwv2.CfnRoute(
-            self,
-            "ConnectRoute",
-            api_id=websocket_api.api_id,
-            route_key="$connect",
-            target=f"integrations/{connect_integration.ref}",
-        )
-        
-        # $disconnect integration
-        disconnect_integration = apigwv2.CfnIntegration(
-            self,
-            "DisconnectIntegration",
-            api_id=websocket_api.api_id,
-            integration_type="AWS_PROXY",
-            integration_uri=websocket_disconnect.function_arn,
-            payload_format_version="1.0",
-        )
-        
-        apigwv2.CfnRoute(
-            self,
-            "DisconnectRoute",
-            api_id=websocket_api.api_id,
-            route_key="$disconnect",
-            target=f"integrations/{disconnect_integration.ref}",
+        # $disconnect route with Lambda integration
+        websocket_api.add_route(
+            "$disconnect",
+            integration=apigwv2_integrations.WebSocketLambdaIntegration(websocket_disconnect)
         )
         
         # Grant API Gateway permission to invoke the Lambdas
