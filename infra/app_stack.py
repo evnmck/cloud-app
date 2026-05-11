@@ -279,6 +279,7 @@ class AppStack(Stack):
             "WebSocketStage",
             web_socket_api=websocket_api,
             stage_name=stage,
+            auto_deploy=True,
             throttle=apigwv2.ThrottleSettings(
                 rate_limit=10000,
                 burst_limit=5000
