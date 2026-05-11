@@ -253,6 +253,15 @@ class AppStack(Stack):
             )
         )
         
+        # $default route - catches all other messages
+        websocket_api.add_route(
+            "$default",
+            integration=apigwv2_integrations.WebSocketLambdaIntegration(
+                id="DefaultIntegration",
+                handler=websocket_send_update
+            )
+        )
+        
         # Grant API Gateway permission to invoke the Lambdas
         websocket_connect.add_permission(
             "ApiGatewayInvoke",
@@ -266,6 +275,13 @@ class AppStack(Stack):
             principal=iam.ServicePrincipal("apigateway.amazonaws.com"),
             action="lambda:InvokeFunction",
             source_arn=f"arn:aws:execute-api:{self.region}:{self.account}:{websocket_api.api_id}/{stage}/$disconnect",
+        )
+        
+        websocket_send_update.add_permission(
+            "ApiGatewayInvoke",
+            principal=iam.ServicePrincipal("apigateway.amazonaws.com"),
+            action="lambda:InvokeFunction",
+            source_arn=f"arn:aws:execute-api:{self.region}:{self.account}:{websocket_api.api_id}/{stage}/$default",
         )
 
         # Export WebSocket URL for frontend
