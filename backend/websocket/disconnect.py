@@ -16,7 +16,13 @@ def handler(event, context):
     try:
         table.delete_item(Key={'connectionId': connection_id})
         print(f"Connection deleted: {connection_id}")
-        return {'statusCode': 200}
+        return {
+            'statusCode': 200,
+            'body': json.dumps({
+                'connectionId': connection_id,
+                'message': 'Disconnected successfully'
+            })
+        }
     except Exception as e:
         print(f"Error deleting connection: {e}")
         return {'statusCode': 500, 'body': json.dumps({'error': str(e)})}

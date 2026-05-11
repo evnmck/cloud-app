@@ -23,7 +23,13 @@ def handler(event, context):
             'ttl': ttl
         })
         print(f"Connection stored: {connection_id}")
-        return {'statusCode': 200}
+        return {
+            'statusCode': 200,
+            'body': json.dumps({
+                'connectionId': connection_id,
+                'message': 'Connected successfully'
+            })
+        }
     except Exception as e:
         print(f"Error storing connection: {e}")
         return {'statusCode': 500, 'body': json.dumps({'error': str(e)})}
