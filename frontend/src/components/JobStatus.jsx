@@ -1,7 +1,7 @@
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import client from '../api/client'
 
-export default function JobStatus({ jobId }) {
+export default function JobStatus({ jobId, realtimeUpdate }) {
   const [jobData, setJobData] = useState(null)
   const [status, setStatus] = useState('')
 
@@ -17,6 +17,20 @@ export default function JobStatus({ jobId }) {
       setStatus(`Error: ${err.message}`)
     }
   }
+
+  // Listen for real-time updates from WebSocket
+  useEffect(() => {
+    if (realtimeUpdate && realtimeUpdate.jobId === jobId) {
+      console.log('Received real-time job update:', realtimeUpdate)
+      // Merge with existing data
+      setJobData(prevData => ({
+        ...prevData,
+        ...realtimeUpdate,
+        updatedAt: new Date().toISOString()
+      }))
+      setStatus(`Job updated: ${realtimeUpdate.status}`)
+    }
+  }, [realtimeUpdate, jobId])
 
   const getStatusColor = (status) => {
     switch (status) {
