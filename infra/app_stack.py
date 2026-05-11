@@ -238,13 +238,13 @@ class AppStack(Stack):
         # $connect route with Lambda integration
         websocket_api.add_route(
             "$connect",
-            integration=apigwv2_integrations.WebSocketLambdaIntegration(websocket_connect)
+            integration=apigwv2_integrations.WebSocketLambdaIntegration(handler=websocket_connect)
         )
         
         # $disconnect route with Lambda integration
         websocket_api.add_route(
             "$disconnect",
-            integration=apigwv2_integrations.WebSocketLambdaIntegration(websocket_disconnect)
+            integration=apigwv2_integrations.WebSocketLambdaIntegration(handler=websocket_disconnect)
         )
         
         # Grant API Gateway permission to invoke the Lambdas
