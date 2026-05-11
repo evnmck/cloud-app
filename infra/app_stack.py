@@ -241,7 +241,8 @@ class AppStack(Stack):
             "ConnectIntegration",
             api_id=websocket_api.api_id,
             integration_type="AWS_PROXY",
-            integration_uri=f"arn:aws:apigatewayv2:{self.region}:lambda:path/2015-03-31/functions/{websocket_connect.function_arn}/invocations",
+            integration_uri=websocket_connect.function_arn,
+            payload_format_version="1.0",
         )
         
         apigwv2.CfnRoute(
@@ -258,7 +259,8 @@ class AppStack(Stack):
             "DisconnectIntegration",
             api_id=websocket_api.api_id,
             integration_type="AWS_PROXY",
-            integration_uri=f"arn:aws:apigatewayv2:{self.region}:lambda:path/2015-03-31/functions/{websocket_disconnect.function_arn}/invocations",
+            integration_uri=websocket_disconnect.function_arn,
+            payload_format_version="1.0",
         )
         
         apigwv2.CfnRoute(
