@@ -272,7 +272,7 @@ class AppStack(Stack):
         CfnOutput(
             self,
             "WebSocketURL",
-            value=websocket_api.api_endpoint,
+            value=f"wss://{websocket_api.api_id}.execute-api.{self.region}.amazonaws.com/{stage}",
             export_name=f"evnmck-baseball-{stage}-websocket-url",
             description="WebSocket API endpoint URL"
         )
