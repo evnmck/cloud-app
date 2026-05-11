@@ -165,8 +165,7 @@ class AppStack(Stack):
         # ---------- WebSocket API Gateway ----------
         websocket_api = apigwv2.WebSocketApi(
             self,
-            "JobStatusWebSocket",
-            route_selection_expression="$request.body.action"
+            "JobStatusWebSocket"
         )
 
         websocket_stage = apigwv2.WebSocketStage(
