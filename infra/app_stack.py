@@ -168,17 +168,6 @@ class AppStack(Stack):
             "JobStatusWebSocket"
         )
 
-        websocket_stage = apigwv2.WebSocketStage(
-            self,
-            "WebSocketStage",
-            web_socket_api=websocket_api,
-            stage_name=stage,
-            throttle=apigwv2.ThrottleSettings(
-                rate_limit=10000,
-                burst_limit=5000
-            )
-        )
-
         # ---------- WebSocket Lambdas ----------
         # $connect Lambda
         websocket_connect = _lambda.Function(
@@ -234,7 +223,7 @@ class AppStack(Stack):
             )
         )
 
-        # Connect WebSocket Lambdas to routes
+        # Connect WebSocket Lambdas to routes BEFORE creating stage
         # $connect route with Lambda integration
         websocket_api.add_route(
             "$connect",
@@ -282,6 +271,18 @@ class AppStack(Stack):
             principal=iam.ServicePrincipal("apigateway.amazonaws.com"),
             action="lambda:InvokeFunction",
             source_arn=f"arn:aws:execute-api:{self.region}:{self.account}:{websocket_api.api_id}/{stage}/$default",
+        )
+
+        # NOW create the stage (after all routes and permissions are set)
+        websocket_stage = apigwv2.WebSocketStage(
+            self,
+            "WebSocketStage",
+            web_socket_api=websocket_api,
+            stage_name=stage,
+            throttle=apigwv2.ThrottleSettings(
+                rate_limit=10000,
+                burst_limit=5000
+            )
         )
 
         # Export WebSocket URL for frontend
