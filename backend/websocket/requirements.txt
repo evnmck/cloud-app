@@ -1,0 +1,5 @@
+boto3==1.34.144
+
+# Testing
+pytest==7.4.3
+moto==4.2.10

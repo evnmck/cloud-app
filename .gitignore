@@ -7,28 +7,42 @@ env/
 venv/
 infra/.venv/
 backend/.venv/
+
 # Python cache
 __pycache__/
 *.pyc
 *.pyo
 *.pyd
+
 # Node modules
 node_modules/
 frontend/node_modules/
+
 # Frontend build artifacts
 frontend/dist/
 frontend/build/
+
 # MacOS junk files
 .DS_Store
+
 # IDE/editor settings
 .vscode/
-.idea/
-# AWS SAM/Cfn templates (optional)
+!.vscode/extensions.json
+.idea
+*.suo
+*.ntvs*
+*.njsproj
+*.sln
+*.sw?
+
+# AWS SAM/Cfn templates
 .aws-sam/
+
 # Environment files
 .env
-.env.*         # optional if you want to ignore all env variants
-!.env.example  # keep example files tracked
+.env.*
+!.env.example
+
 # Logs
 logs
 *.log
@@ -37,23 +51,16 @@ yarn-debug.log*
 yarn-error.log*
 pnpm-debug.log*
 lerna-debug.log*
-node_modules
+
+# Build outputs
 dist
 dist-ssr
 *.local
-# Editor directories and files
-.vscode/*
-!.vscode/extensions.json
-.idea
-*.suo
-*.ntvs*
-*.njsproj
-*.sln
-*.sw?
-.env
-.env
-.env.*
-!.env.example
+
+# Test coverage
 backend/api/.coverage
 data/glue/.coverage
 data/glue/htmlcov/
+
+# Documentation
+docs/info/*

@@ -10,6 +10,7 @@ import uuid
 from shared_services import update_job
 
 stepfunctions = boto3.client("stepfunctions")
+lambda_client = boto3.client("lambda")
 
 
 def handler(event, context):
@@ -32,6 +33,21 @@ def handler(event, context):
             # Update job to PROCESSING
             update_job(job_id, "PROCESSING")
 
+            try:
+                # Invoke WebSocket update Lambda to notify clients of status change
+                lambda_client.invoke(
+                    FunctionName=os.environ["WEBSOCKET_SEND_UPDATE_ARN"],
+                    InvocationType='Event',  # Async invocation
+                    Payload=json.dumps({
+                        "jobId": job_id,
+                        "status": "PROCESSING",
+                    }).encode('utf-8')
+                )
+                print(f"Invoked WebSocket update for job {job_id}")
+            except Exception as e:
+                print(f"Warning: Failed to send WebSocket update: {e}")
+                # Continue processing even if WebSocket update fails
+
             # Generate unique execution name: jobId + timestamp/UUID suffix
             # Allows retries/re-uploads of same job without ExecutionAlreadyExists error
             execution_name = f"{job_id}-{uuid.uuid4().hex[:8]}"
@@ -48,6 +64,7 @@ def handler(event, context):
             )
             
             print(f"Step Function triggered for job {job_id} (execution: {execution_name})")
+
         except Exception as e:
             print(f"Error processing S3 event: {str(e)}")
             # Update job status to FAILED on error
@@ -55,6 +72,21 @@ def handler(event, context):
                 update_job(job_id, "FAILED", error=f"Upload trigger error: {str(e)[:900]}")
             except Exception as update_err:
                 print(f"Failed to update job status: {str(update_err)}")
+        
+            try:
+                lambda_client.invoke(
+                    FunctionName=os.environ["WEBSOCKET_SEND_UPDATE_ARN"],
+                    InvocationType='Event',  # Async invocation
+                    Payload=json.dumps({
+                        "jobId": job_id,
+                        "status": "FAILED",
+                        "error": f"Upload trigger error: {str(e)[:900]}"
+                    }).encode('utf-8')
+                )
+                print(f"Invoked WebSocket update for job {job_id} failure")
+            except Exception as ws_err:
+                print(f"Warning: Failed to send WebSocket update for failure: {ws_err}")
+                # Continue even if WebSocket update fails
             raise
     
     return {

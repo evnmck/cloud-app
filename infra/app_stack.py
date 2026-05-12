@@ -3,10 +3,13 @@ from aws_cdk import (
     Stack,
     Duration,
     RemovalPolicy,
+    CfnOutput,
     aws_dynamodb as dynamodb,
     aws_s3 as s3,
     aws_lambda as _lambda,
     aws_apigateway as apigw,
+    aws_apigatewayv2 as apigwv2,
+    aws_apigatewayv2_integrations as apigwv2_integrations,
     aws_lambda_event_sources as lambda_events,
     aws_glue as glue,
     aws_iam as iam,
@@ -145,6 +148,147 @@ class AppStack(Stack):
             apigw.LambdaIntegration(api_lambda),
         )
 
+        # ---------- DynamoDB: WebSocket connections table ----------
+        websocket_connections_table = dynamodb.Table(
+            self,
+            "WebSocketConnectionsTable",
+            table_name=f"evnmck-baseball-{stage}-websocket-connections",
+            partition_key=dynamodb.Attribute(
+                name="connectionId",
+                type=dynamodb.AttributeType.STRING,
+            ),
+            billing_mode=dynamodb.BillingMode.PAY_PER_REQUEST,
+            removal_policy=RemovalPolicy.DESTROY if stage == "dev" else RemovalPolicy.RETAIN,
+            time_to_live_attribute="ttl",
+        )
+
+        # ---------- WebSocket API Gateway ----------
+        websocket_api = apigwv2.WebSocketApi(
+            self,
+            "JobStatusWebSocket"
+        )
+
+        # ---------- WebSocket Lambdas ----------
+        # TODO (EV-0002 - Authentication System):
+        # When adding JWT validation to $connect, also pass API_TOKEN/JWT_SECRET to these handlers
+        # for token verification, similar to api_lambda below.
+        
+        # $connect Lambda
+        websocket_connect = _lambda.Function(
+            self,
+            "WebSocketConnect",
+            function_name=f"evnmck-baseball-{stage}-websocket-connect",
+            runtime=_lambda.Runtime.PYTHON_3_11,
+            handler="connect.handler",
+            code=_lambda.Code.from_asset("../backend/websocket", exclude=["test", "*.pyc", "__pycache__"]),
+            environment={
+                "WEBSOCKET_CONNECTIONS_TABLE": websocket_connections_table.table_name,
+                # "API_TOKEN": os.environ.get("API_TOKEN", ""),  # TODO: Uncomment when auth is added
+            }
+        )
+        websocket_connections_table.grant_write_data(websocket_connect)
+
+        # $disconnect Lambda
+        websocket_disconnect = _lambda.Function(
+            self,
+            "WebSocketDisconnect",
+            function_name=f"evnmck-baseball-{stage}-websocket-disconnect",
+            runtime=_lambda.Runtime.PYTHON_3_11,
+            handler="disconnect.handler",
+            code=_lambda.Code.from_asset("../backend/websocket", exclude=["test", "*.pyc", "__pycache__"]),
+            environment={
+                "WEBSOCKET_CONNECTIONS_TABLE": websocket_connections_table.table_name,
+            }
+        )
+        websocket_connections_table.grant_write_data(websocket_disconnect)
+
+        # send_job_update Lambda
+        websocket_send_update = _lambda.Function(
+            self,
+            "WebSocketSendUpdate",
+            function_name=f"evnmck-baseball-{stage}-websocket-send-update",
+            runtime=_lambda.Runtime.PYTHON_3_11,
+            handler="send_update.handler",
+            code=_lambda.Code.from_asset("../backend/websocket", exclude=["test", "*.pyc", "__pycache__"]),
+            environment={
+                "WEBSOCKET_CONNECTIONS_TABLE": websocket_connections_table.table_name,
+                "WEBSOCKET_ENDPOINT": f"https://{websocket_api.api_id}.execute-api.{self.region}.amazonaws.com/{stage}",
+            },
+            timeout=Duration.seconds(30)
+        )
+        websocket_connections_table.grant_read_write_data(websocket_send_update)
+        
+        # Grant permission to manage WebSocket connections via Management API
+        websocket_send_update.add_to_role_policy(
+            iam.PolicyStatement(
+                actions=["execute-api:ManageConnections"],
+                resources=[
+                    f"arn:aws:execute-api:{self.region}:{self.account}:{websocket_api.api_id}/*/@connections/*"
+                ]
+            )
+        )
+
+        # Connect WebSocket Lambdas to routes BEFORE creating stage
+        # $connect route with Lambda integration
+        websocket_api.add_route(
+            "$connect",
+            integration=apigwv2_integrations.WebSocketLambdaIntegration(
+                id="ConnectIntegration",
+                handler=websocket_connect
+            )
+        )
+        
+        # $disconnect route with Lambda integration
+        websocket_api.add_route(
+            "$disconnect",
+            integration=apigwv2_integrations.WebSocketLambdaIntegration(
+                id="DisconnectIntegration",
+                handler=websocket_disconnect
+            )
+        )
+        
+        # Note: $default route intentionally not created
+        # Clients should not send arbitrary messages; only backend workflows invoke send_update
+        
+        # Grant API Gateway permission to invoke the Lambdas
+        websocket_connect.add_permission(
+            "ApiGatewayInvoke",
+            principal=iam.ServicePrincipal("apigateway.amazonaws.com"),
+            action="lambda:InvokeFunction",
+            source_arn=f"arn:aws:execute-api:{self.region}:{self.account}:{websocket_api.api_id}/*/*",
+        )
+        
+        websocket_disconnect.add_permission(
+            "ApiGatewayInvoke",
+            principal=iam.ServicePrincipal("apigateway.amazonaws.com"),
+            action="lambda:InvokeFunction",
+            source_arn=f"arn:aws:execute-api:{self.region}:{self.account}:{websocket_api.api_id}/*/*",
+        )
+        
+
+
+        # NOW create the stage (after all routes and permissions are set)
+        websocket_stage = apigwv2.WebSocketStage(
+            self,
+            "WebSocketStage",
+            web_socket_api=websocket_api,
+            stage_name=stage,
+            auto_deploy=True,
+            throttle=apigwv2.ThrottleSettings(
+                rate_limit=10000,
+                burst_limit=5000
+            )
+        )
+
+        # Export WebSocket URL for frontend
+        CfnOutput(
+            self,
+            "WebSocketURL",
+            value=f"wss://{websocket_api.api_id}.execute-api.{self.region}.amazonaws.com/{stage}",
+            export_name=f"evnmck-baseball-{stage}-websocket-url",
+            description="WebSocket API endpoint URL"
+        )
+
         #---------- Lambda A: S3 trigger -> Start Step Function ----------
         upload_trigger = _lambda.Function(
             self,
@@ -169,6 +313,16 @@ class AppStack(Stack):
             )
         )
 
+        upload_trigger.add_environment("WEBSOCKET_SEND_UPDATE_ARN", websocket_send_update.function_arn)
+
+        upload_trigger.add_to_role_policy(
+            iam.PolicyStatement(
+                effect=iam.Effect.ALLOW,
+                actions=['lambda:InvokeFunction'],
+                resources=[websocket_send_update.function_arn]
+            )
+        )
+
         #---------- Lambda B: Error handler for Step Function ----------
         error_handler = _lambda.Function(
             self,
@@ -184,6 +338,16 @@ class AppStack(Stack):
         )
 
         jobs_table.grant_read_write_data(error_handler)
+
+        error_handler.add_environment("WEBSOCKET_SEND_UPDATE_ARN", websocket_send_update.function_arn)
+
+        error_handler.add_to_role_policy(
+            iam.PolicyStatement(
+                effect=iam.Effect.ALLOW,
+                actions=['lambda:InvokeFunction'],
+                resources=[websocket_send_update.function_arn]
+            )
+        )
 
         # ---------- IAM role for Glue job ----------
         glue_role = iam.Role(
@@ -249,7 +413,7 @@ class AppStack(Stack):
                 "--jobId.$": "$.jobId",
                 "--bucket.$": "$.bucket",
                 "--key.$": "$.key",
-            }),
+            }),           
         )
 
         # Handle failure - invoke error handler Lambda
@@ -272,6 +436,17 @@ class AppStack(Stack):
             cause="The Glue job execution failed and was handled"
         )
 
+        send_update_task = sfn_tasks.LambdaInvoke(
+            self,
+            "SendJobUpdate",  # Task name
+            lambda_function=websocket_send_update,  # Which Lambda to call
+            payload=sfn.TaskInput.from_object({
+                "jobId.$": "$.jobId",  # Pass jobId from input
+                "status": "PROCESSED",  # Hard-coded status
+            }),
+        )
+
+
         # Success state
         job_succeeded = sfn.Pass(self, "JobSucceeded")
 
@@ -287,7 +462,7 @@ class AppStack(Stack):
         handle_failure.next(job_failed)
         
         # Success path
-        definition = start_glue_job.next(job_succeeded)
+        definition = start_glue_job.next(send_update_task).next(job_succeeded)
 
         # Create state machine
         state_machine = sfn.StateMachine(
