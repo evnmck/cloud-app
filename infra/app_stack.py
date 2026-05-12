@@ -169,6 +169,10 @@ class AppStack(Stack):
         )
 
         # ---------- WebSocket Lambdas ----------
+        # TODO (EV-0002 - Authentication System):
+        # When adding JWT validation to $connect, also pass API_TOKEN/JWT_SECRET to these handlers
+        # for token verification, similar to api_lambda below.
+        
         # $connect Lambda
         websocket_connect = _lambda.Function(
             self,
@@ -179,6 +183,7 @@ class AppStack(Stack):
             code=_lambda.Code.from_asset("../backend/websocket", exclude=["test", "*.pyc", "__pycache__"]),
             environment={
                 "WEBSOCKET_CONNECTIONS_TABLE": websocket_connections_table.table_name,
+                # "API_TOKEN": os.environ.get("API_TOKEN", ""),  # TODO: Uncomment when auth is added
             }
         )
         websocket_connections_table.grant_write_data(websocket_connect)

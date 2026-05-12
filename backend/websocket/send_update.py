@@ -9,6 +9,11 @@ def handler(event, context):
     Called by Step Function when job completes.
     Send status update to all connected WebSocket clients.
     """
+    # Validate required fields
+    if 'jobId' not in event or 'status' not in event:
+        print(f"Missing required fields in event: {event}")
+        return {'statusCode': 400, 'body': json.dumps({'error': 'Missing jobId or status'})}
+    
     dynamodb = boto3.resource('dynamodb')
     table = dynamodb.Table(os.environ['WEBSOCKET_CONNECTIONS_TABLE'])
     apigw_client = boto3.client('apigatewaymanagementapi',
@@ -29,6 +34,8 @@ def handler(event, context):
     
     if results:
         message['results'] = results
+    if 'error' in event:
+        message['error'] = event['error']
     
     # Get all active connections
     try:

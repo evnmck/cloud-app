@@ -8,6 +8,12 @@ def handler(event, context):
     """
     Called when WebSocket client connects.
     Store connectionId in DynamoDB with TTL.
+    
+    TODO (Part of EV-0002 - Authentication System):
+    - Validate JWT token from query string parameters
+    - Extract userId from JWT token
+    - Store userId alongside connectionId for per-user filtering
+    - Return 401 for unauthorized connections
     """
     dynamodb = boto3.resource('dynamodb')
     table = dynamodb.Table(os.environ['WEBSOCKET_CONNECTIONS_TABLE'])
