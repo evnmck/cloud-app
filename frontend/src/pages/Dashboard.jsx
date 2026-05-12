@@ -74,6 +74,8 @@ export default function Dashboard() {
       </section>
 
       <section>
+        {/* TODO: When job status reaches 'PROCESSED', automatically fetch full job details 
+            via GET /jobs/{jobId} to populate results/processed data location for download */}
         <JobStatus jobId={lastJobId} realtimeUpdate={jobStatus} />
       </section>
     </div>
