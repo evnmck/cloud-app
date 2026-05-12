@@ -176,7 +176,7 @@ class AppStack(Stack):
             function_name=f"evnmck-baseball-{stage}-websocket-connect",
             runtime=_lambda.Runtime.PYTHON_3_11,
             handler="connect.handler",
-            code=_lambda.Code.from_asset("../backend/websocket"),
+            code=_lambda.Code.from_asset("../backend/websocket", exclude=["test", "*.pyc", "__pycache__"]),
             environment={
                 "WEBSOCKET_CONNECTIONS_TABLE": websocket_connections_table.table_name,
             }
@@ -190,7 +190,7 @@ class AppStack(Stack):
             function_name=f"evnmck-baseball-{stage}-websocket-disconnect",
             runtime=_lambda.Runtime.PYTHON_3_11,
             handler="disconnect.handler",
-            code=_lambda.Code.from_asset("../backend/websocket"),
+            code=_lambda.Code.from_asset("../backend/websocket", exclude=["test", "*.pyc", "__pycache__"]),
             environment={
                 "WEBSOCKET_CONNECTIONS_TABLE": websocket_connections_table.table_name,
             }
@@ -204,19 +204,19 @@ class AppStack(Stack):
             function_name=f"evnmck-baseball-{stage}-websocket-send-update",
             runtime=_lambda.Runtime.PYTHON_3_11,
             handler="send_update.handler",
-            code=_lambda.Code.from_asset("../backend/websocket"),
+            code=_lambda.Code.from_asset("../backend/websocket", exclude=["test", "*.pyc", "__pycache__"]),
             environment={
                 "WEBSOCKET_CONNECTIONS_TABLE": websocket_connections_table.table_name,
                 "WEBSOCKET_ENDPOINT": f"https://{websocket_api.api_id}.execute-api.{self.region}.amazonaws.com/{stage}",
             },
             timeout=Duration.seconds(30)
         )
-        websocket_connections_table.grant_read_data(websocket_send_update)
+        websocket_connections_table.grant_read_write_data(websocket_send_update)
         
-        # Grant permission to invoke post_to_connection
+        # Grant permission to manage WebSocket connections via Management API
         websocket_send_update.add_to_role_policy(
             iam.PolicyStatement(
-                actions=["execute-api:Invoke"],
+                actions=["execute-api:ManageConnections"],
                 resources=[
                     f"arn:aws:execute-api:{self.region}:{self.account}:{websocket_api.api_id}/*/@connections/*"
                 ]
@@ -242,36 +242,25 @@ class AppStack(Stack):
             )
         )
         
-        # $default route - catches all other messages
-        websocket_api.add_route(
-            "$default",
-            integration=apigwv2_integrations.WebSocketLambdaIntegration(
-                id="DefaultIntegration",
-                handler=websocket_send_update
-            )
-        )
+        # Note: $default route intentionally not created
+        # Clients should not send arbitrary messages; only backend workflows invoke send_update
         
         # Grant API Gateway permission to invoke the Lambdas
         websocket_connect.add_permission(
             "ApiGatewayInvoke",
             principal=iam.ServicePrincipal("apigateway.amazonaws.com"),
             action="lambda:InvokeFunction",
-            source_arn=f"arn:aws:execute-api:{self.region}:{self.account}:{websocket_api.api_id}/{stage}/$connect",
+            source_arn=f"arn:aws:execute-api:{self.region}:{self.account}:{websocket_api.api_id}/*/*",
         )
         
         websocket_disconnect.add_permission(
             "ApiGatewayInvoke",
             principal=iam.ServicePrincipal("apigateway.amazonaws.com"),
             action="lambda:InvokeFunction",
-            source_arn=f"arn:aws:execute-api:{self.region}:{self.account}:{websocket_api.api_id}/{stage}/$disconnect",
+            source_arn=f"arn:aws:execute-api:{self.region}:{self.account}:{websocket_api.api_id}/*/*",
         )
         
-        websocket_send_update.add_permission(
-            "ApiGatewayInvoke",
-            principal=iam.ServicePrincipal("apigateway.amazonaws.com"),
-            action="lambda:InvokeFunction",
-            source_arn=f"arn:aws:execute-api:{self.region}:{self.account}:{websocket_api.api_id}/{stage}/$default",
-        )
+
 
         # NOW create the stage (after all routes and permissions are set)
         websocket_stage = apigwv2.WebSocketStage(
