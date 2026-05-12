@@ -9,6 +9,7 @@ export function useWebSocket() {
   const wsRef = useRef(null);
   const reconnectTimeoutRef = useRef(null);
   const reconnectAttemptsRef = useRef(0);
+  const isMountedRef = useRef(true);
   const maxReconnectAttempts = 10;
   const baseReconnectDelay = 1000; // 1 second
 
@@ -62,14 +63,16 @@ export function useWebSocket() {
         console.log('WebSocket disconnected');
         setIsConnected(false);
 
-        // Attempt to reconnect with exponential backoff
-        if (reconnectAttemptsRef.current < maxReconnectAttempts) {
+        // Attempt to reconnect with exponential backoff - only if component still mounted
+        if (isMountedRef.current && reconnectAttemptsRef.current < maxReconnectAttempts) {
           const delay = baseReconnectDelay * Math.pow(2, reconnectAttemptsRef.current);
           console.log(`Reconnecting in ${delay}ms (attempt ${reconnectAttemptsRef.current + 1})`);
           
           reconnectTimeoutRef.current = setTimeout(() => {
-            reconnectAttemptsRef.current += 1;
-            connect();
+            if (isMountedRef.current) {
+              reconnectAttemptsRef.current += 1;
+              connect();
+            }
           }, delay);
         } else {
           setError('Failed to connect after multiple attempts');
@@ -85,9 +88,11 @@ export function useWebSocket() {
   }, [connectionId]);
 
   useEffect(() => {
+    isMountedRef.current = true;
     connect();
 
     return () => {
+      isMountedRef.current = false;
       // Cleanup: close WebSocket and clear timeouts
       if (reconnectTimeoutRef.current) {
         clearTimeout(reconnectTimeoutRef.current);

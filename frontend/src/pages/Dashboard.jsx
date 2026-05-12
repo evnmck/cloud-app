@@ -1,4 +1,5 @@
 import { useState, useEffect } from 'react'
+import { useNavigate } from 'react-router-dom'
 import { useAuth } from '../contexts/AuthContext'
 import { useWebSocket } from '../hooks/useWebSocket'
 import client from '../api/client'
@@ -7,11 +8,17 @@ import JobStatus from '../components/JobStatus'
 import styles from './Dashboard.module.css'
 
 export default function Dashboard() {
+  const navigate = useNavigate()
   const { token, logout } = useAuth()
   const [health, setHealth] = useState(null)
   const [lastJobId, setLastJobId] = useState('')
   const { isConnected, error, connectionId, lastUpdate } = useWebSocket()
   const [jobStatus, setJobStatus] = useState(null)
+
+  const handleLogout = () => {
+    logout()
+    navigate('/login')
+  }
 
   const checkHealth = async () => {
     if (!token) return setHealth({ error: 'Not authenticated' })
@@ -39,7 +46,7 @@ export default function Dashboard() {
       <header className={styles.header}>
         <h1>MyApp</h1>
         <div>
-          <button onClick={logout}>Logout</button>
+          <button onClick={handleLogout}>Logout</button>
         </div>
       </header>
 
