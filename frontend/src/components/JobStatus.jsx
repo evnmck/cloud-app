@@ -24,7 +24,7 @@ export default function JobStatus({ jobId, realtimeUpdate }) {
       console.log('Received real-time job update:', realtimeUpdate)
       // Merge with existing data
       setJobData(prevData => ({
-        ...prevData,
+        ...(prevData ?? {}),
         ...realtimeUpdate,
         updatedAt: new Date().toISOString()
       }))
