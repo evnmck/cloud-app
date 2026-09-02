@@ -16,3 +16,6 @@ def check_auth(event):
         return response(401, {"message": "Unauthorized"})
     
     return None
+
+def print_hello():
+    print("Demo")
