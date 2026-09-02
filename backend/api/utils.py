@@ -24,6 +24,3 @@ def parse_body(event):
         return json.loads(body)
     except Exception:
         return None
-
-def print_hello():
-    print("Demo")
