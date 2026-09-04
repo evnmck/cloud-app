@@ -17,5 +17,3 @@ def check_auth(event):
     
     return None
 
-def print_hello():
-    print("Hello")
